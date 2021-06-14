@@ -24,7 +24,6 @@ available on your system.
 
 .. __: https://www.openblas.net/
 
-.. __:
 
 From PyPI
 ~~~~~~~~~
