@@ -1,15 +1,34 @@
 .. README.rst for npy_openblas_demo
 
-npy_openblas_demo
+npy_lapacke_demo
 =================
 
-A tiny Python package demonstrating calls into OpenBLAS__ from the
-`NumPy C API`__.
+A tiny Python package demonstrating `LAPACKE`_ calls on NumPy arrays in C
+extension modules.
 
-Intended as an example of how to perform linear algebra with NumPy arrays
-directly with OpenBLAS routines in C extension modules, which is clearly
-important in the context of numerical computing.
+.. __: https://www.netlib.org/lapack/lapacke.html
+
+
+Installation
+------------
+
+From source
+~~~~~~~~~~~
+
+TBD. However, the code will be written so that the C extensions can be built
+with either `Intel MKL`__, `OpenBLAS`__, or a standard LAPACKE implementation
+available on your system.
+
+.. __: https://software.intel.com/content/www/us/en/develop/documentation/
+   onemkl-developer-reference-c/top.html
 
 .. __: https://www.openblas.net/
 
-.. __: https://numpy.org/doc/stable/reference/c-api/index.html
+.. __:
+
+From PyPI
+~~~~~~~~~
+
+TBD. `manylinux2010` and Windows wheels are planned.
+
+.. __: https://github.com/pypa/manylinux
