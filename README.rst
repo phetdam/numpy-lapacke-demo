@@ -3,7 +3,7 @@
 npy_lapacke_demo
 =================
 
-A tiny Python package demonstrating `LAPACKE`_ calls on NumPy arrays in C
+A tiny Python package demonstrating `LAPACKE`__ calls on NumPy arrays in C
 extension modules.
 
 .. __: https://www.netlib.org/lapack/lapacke.html
