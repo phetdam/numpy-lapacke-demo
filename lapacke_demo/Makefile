@@ -42,8 +42,7 @@ mkl_link_line          = -Wl,--no-as-needed -L$(MKL_PATH)/lib \
 
 # triggered if no target is provided
 dummy:
-	@echo "Please specify a target to make: $(tgt_openblas), \
-	$(tgt_lapacke), $(tgt_mkl)"
+	@echo "Target must be one of $(tgt_openblas), $(tgt_lapacke), $(tgt_mkl)"
 
 # build using OpenBLAS
 $(tgt_openblas): lapacke_demo.c
