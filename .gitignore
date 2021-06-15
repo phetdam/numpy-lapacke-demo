@@ -1,0 +1,2 @@
+# ignore executable built from lapacke_demo/lapacke_demo.c
+lapacke_demo/lapacke_demo
