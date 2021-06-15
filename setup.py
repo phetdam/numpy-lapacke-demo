@@ -59,6 +59,8 @@ def _get_ext_modules(env):
         USE_LAPACKE = False
     if "USE_MKL" in env and env["USE_MKL"] == "1":
         USE_MKL = True
+    else:
+        USE_MKL = False
     # if all are False, error
     if not USE_OPENBLAS and not USE_LAPACKE and not USE_MKL:
         raise RuntimeError("none of USE_OPENBLAS, USE_LAPACKE, USE_MKL set")
