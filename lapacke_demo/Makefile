@@ -6,7 +6,7 @@
 CC                     = gcc
 CFLAGS                 = -Wall -g
 # set to 1 to include GSL headers and link GSL
-GSL_INCLUDE           ?= 0
+GSL_INCLUDE           ?=
 # location of GSL install path. ignored if GSL_INCLUDE is 0
 GSL_PATH              ?= /usr/local
 # location of OpenBLAS, LAPACKE, MKL install paths
