@@ -10,7 +10,7 @@ as a ``double`` array, and performs a QR decomposition on the array using
 `GNU Scientific Library`__ (GSL), a random matrix with shape ``(4, 3)``,
 elements drawn from the standard normal distribution, will then be printed to
 screen. The PRNG used to generate the elements is seeded, so running
-``lapacke_demo`` multiple times results in the same output.
+``lapacke_demo`` executable multiple times results in the same output.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-developer-reference-c/top/lapack-routines/lapack-least-squares-and-
@@ -33,10 +33,10 @@ Compiling
 With ``make``
 ~~~~~~~~~~~~~
 
-The easiest way to build the executable from the example code is with GNU
-``make``. Make the ``demo_openblas`` target to dynamically link against
-OpenBLAS, make the ``demo_lapacke`` target to dynamically link against LAPACKE,
-and make the ``demo_mkl`` target to dynamically link against Intel MKL.
+The easiest way to build the ``lapacke_demo`` executable is with GNU ``make``.
+Make the ``demo_openblas`` target to dynamically link against OpenBLAS, make
+the ``demo_lapacke`` target to dynamically link against LAPACKE, and make the
+``demo_mkl`` target to dynamically link against Intel MKL.
 
 If any of the libraries are not located on the standard runtime library search
 path, one can specify the base installation directory by overriding the values
@@ -76,9 +76,8 @@ Of course, if the base GSL install directory is known to the system,
 Manual compilation
 ~~~~~~~~~~~~~~~~~~
 
-Without ``make``, compiling and linking must be done by hand. Assuming the
-compiler is ``gcc``, dynamic linking against OpenBLAS without linking against
-GSL can be done with
+Assuming the compiler is ``gcc``, dynamic linking against OpenBLAS without
+linking against GSL can be done with
 
 .. code:: bash
 
@@ -113,12 +112,15 @@ combinations of MKL version, OS, architecture, ``int`` size, threading layer,
 etc. The linker line in the above invocation, excluding the additional
 ``-L/path/to/MKL/lib``, was generated using the Link Line Advisor.
 
+.. __: https://software.intel.com/content/www/us/en/develop/tools/oneapi/
+   components/onemkl/link-line-advisor.html
+
 .. [#] Intel MKL also supports 64-bit ``int``, where one links against
    ``libmkl_intel_ilp64`` and specifies ``-DMKL_ILP64`` instead of linking
    against ``libmkl_intel_lp64``. The differences in ILP64 and LP64 are covered
    more in detail in the `dedicated article on them`__.
 
-   .. __: https://software.intel.com/content/www/us/en/develop/documentation/
+.. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
    oneapi-math-kernel-library/linking-in-detail/linking-with-interface-
    libraries/using-the-ilp64-interface-vs-lp64-interface.html
@@ -126,11 +128,13 @@ etc. The linker line in the above invocation, excluding the additional
 Linker configuration
 ~~~~~~~~~~~~~~~~~~~~
 
-The ``-Wl,-rpath,/path/to/my_lapacke_lib`` flags in the ``gcc`` calls can be
-omitted if you have run ``ldconfig`` to update the ``ld.so`` cache or have
-included ``/path/to/OpenBLAS/lib`` in either ``/etc/ld.so.conf`` or a file in
-``/etc/ld.so.conf.d``. Otherwise, omitting the flags will result in runtime
+The ``-Wl,-rpath,/path/to/my_lapacke_lib`` flags can be omitted if you have run
+``ldconfig`` to update the ``ld.so`` cache or have included
+``/path/to/OpenBLAS/lib`` in either ``/etc/ld.so.conf`` or a file in
+``/etc/ld.so.conf.d``. Otherwise, omitting the flags will result in a runtime
 linking error.
 
-.. __: https://software.intel.com/content/www/us/en/develop/tools/oneapi/
-   components/onemkl/link-line-advisor.html
+Execution
+---------
+
+Dead simple. After compilation, just run the demo with ``./lapacke_demo``.
