@@ -26,7 +26,9 @@ mkl_include_line       = -I$(MKL_PATH)/include -I$(MKL_PATH)/include/mkl
 # linker lines for GSL, LAPACKE, OpenBLAS, MKL. -lm may not be needed in
 # gsl_link_line for some systems. Intel MKL link line courtesy of the Intel
 # Math Kernel Library Link Line Advisor. requires libpthread, libgomp.
-gsl_link_line          = -L$(GSL_PATH)/lib -Wl,-rpath,$(GSL_PATH)/lib -lgsl -lm
+gsl_link_line          = -L$(GSL_PATH)/lib \
+	-L$(GSL_PATH)/lib/x86_64-linux-gnu -Wl,-rpath,$(GSL_PATH)/lib \
+	-Wl,-rpath,$(GSL_PATH)/lib/x86_64-linux-gnu -lgsl -lm
 lapacke_link_line      = -L$(LAPACKE_PATH) -L$(LAPACKE_PATH)/lib \
 	-L$(LAPACKE_PATH)/lib/x86_64-linux-gnu -Wl,-rpath,$(LAPACKE_PATH) \
 	-Wl,-rpath,$(LAPACKE_PATH)/lib \
@@ -72,8 +74,9 @@ endif
 # build using Intel MKL. note that we add multiple include and lib directories
 # based off MKL_PATH prefix to handle several different install cases.
 $(tgt_mkl): lapacke_demo.c
+# tab required for the $(error) call, else it always triggers if GSL_INCLUDE=1
 ifeq ($(GSL_INCLUDE), 1)
-$(error cannot pass -DGSL_INCLUDE with -DMKL_INCLUDE)
+	$(error cannot pass -DGSL_INCLUDE with -DMKL_INCLUDE)
 else
 	$(CC) $(CFLAGS) -DMKL_INCLUDE $(mkl_include_line) -m64 -o lapacke_demo \
 	lapacke_demo.c $(mkl_link_line)
