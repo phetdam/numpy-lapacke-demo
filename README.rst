@@ -28,6 +28,6 @@ available on your system.
 From PyPI
 ~~~~~~~~~
 
-TBD. `manylinux2010`__ and Windows wheels are planned.
+TBD. `manylinux2010`__ and Windows wheels using OpenBLAS are planned.
 
 .. __: https://github.com/pypa/manylinux
