@@ -39,7 +39,7 @@
 #else
 // silence error squiggles in VS Code (__INTELLISENSE__ always defined)
 #ifndef __INTELLISENSE__
-#error "no LAPACK includes specified. try -DLAPACKE_INCLUDE or -DMKL_INCLUDE"
+#error "no LAPACKE includes specified. try -DLAPACKE_INCLUDE or -DMKL_INCLUDE"
 #endif /* __INTELLISENSE__ */
 #endif
 
@@ -56,7 +56,7 @@
 
 // silence error squiggles in VS Code
 #ifdef __INTELLISENSE__
-#include <mkl/mkl.h>
+#include <mkl.h>
 #endif /* __INTELLISENSE__ */
 
 // defines for the main (variable-sized arrays can't use initializers)
