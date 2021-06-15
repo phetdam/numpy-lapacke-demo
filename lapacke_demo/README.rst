@@ -136,4 +136,5 @@ run ``ldconfig`` to update the ``ld.so`` cache or have included
 Execution
 ---------
 
-Dead simple. After compilation, just run the demo with ``./lapacke_demo``.
+Dead simple. After compilation, just run the demo with ``./lapacke_demo``. Some
+printing to standard output will be done.
