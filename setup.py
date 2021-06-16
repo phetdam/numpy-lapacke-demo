@@ -2,7 +2,7 @@
 
 import numpy as np
 import os
-from setuptools import setup, Extension
+from setuptools import Extension, find_packages, setup
 
 from npy_lapacke_demo import __package__, __version__
 
@@ -107,8 +107,7 @@ def _get_ext_modules(env):
             include_dirs=lpke_include_dirs + _EXT_INCLUDE_DIRS,
             library_dirs=lpke_lib_dirs, runtime_library_dirs=lpke_lib_dirs,
             libraries=lpke_lib_names, define_macros=lpke_macros,
-            extra_compile_args=_EXT_COMPILE_ARGS,
-            extra_link_args=["--no-as-need"] if USE_MKL else None
+            extra_compile_args=_EXT_COMPILE_ARGS
         )
     ]
 
@@ -128,7 +127,7 @@ def _setup():
         author_email="djh458@stern.nyu.edu",
         license="MIT",
         url="https://github.com/phetdam/scipy_fastmin",
-        packages=[__package__],
+        packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
         ext_package=__package__,

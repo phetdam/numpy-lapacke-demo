@@ -207,7 +207,7 @@ LinearRegression_singular_getter(LinearRegression *self, void *closure)
 }
 
 // members of the LinearRegression type accessed using getters/setters
-static PyGetSetDef LinearRegression_getset[] = {
+static PyGetSetDef LinearRegression_getsets[] = {
   {"coef_", (getter) LinearRegression_coef_getter, NULL, NULL, NULL},
   {"intercept_", (getter) LinearRegression_intercept_getter, NULL, NULL, NULL},
   {"rank_", (getter) LinearRegression_rank_getter, NULL, NULL, NULL},
@@ -216,8 +216,133 @@ static PyGetSetDef LinearRegression_getset[] = {
   {NULL, NULL, NULL, NULL, NULL}
 };
 
+// docstring for the LinearRegression fit method
+PyDoc_STRVAR(
+  LinearRegression_fit_doc,
+  "fit(X, y)"
+  "\n--\n\n"
+  "Fit an ordinary least squares linear regression model given ``X``, ``y``."
+  "\n\n"
+  "Returns ``self`` to allow method chaining. Note that ``X``, ``y`` will be\n"
+  "copied if they are not of type :class:`numpy.ndarray`, not C-contiguous,\n"
+  "not memory aligned, and don't have ``dtype`` double."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "X : numpy.ndarray\n"
+  "    Input array, shape ``(n_samples, n_features)``\n"
+  "y : numpy.ndarray\n"
+  "    Response array, shape ``(n_samples,)`` or ``(n_samples, n_targets)``"
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "self"
+);
+/**
+ * `fit` method for the `LinearRegression` class.
+ * 
+ * No keyword arguments needed, so `kwargs` is omitted.
+ * 
+ * @param self `LinearRegression *` instance
+ * @param args `PyObject *` positional args tuple
+ * @returns `PyObject *` to `self` to allow method chaining.
+ */
+static PyObject *
+LinearRegression_fit(LinearRegression *self, PyObject *args)
+{
+  // input ndarray and response ndarray. set to NULL so when we Py_XDECREF in
+  // PyArg_ParseTuple we don't cause segfaults.
+  PyArrayObject *input_ar, *output_ar;
+  input_ar = output_ar = NULL;
+  // parse input and response, converting to ndarray. must Py_XDECREF on error.
+  if (
+    !PyArg_ParseTuple(
+      args, "O&O&", PyArray_Converter, (void *) &input_ar,
+      PyArray_Converter, (void *) &output_ar
+    )
+  ) {
+    goto except;
+  }
+  // check that input_ar and output_ar have positive size
+  if (PyArray_SIZE(input_ar) < 1) {
+    PyErr_SetString(PyExc_ValueError, "X must be nonempty");
+    goto except;
+  }
+  if (PyArray_SIZE(output_ar) < 1) {
+    PyErr_SetString(PyExc_ValueError, "y must be nonempty");
+    goto except;
+  }
+  // check that input_ar and output_ar have appropriate shape
+  if (PyArray_NDIM(input_ar) != 2) {
+    PyErr_SetString(
+      PyExc_ValueError, "X must have shape (n_samples, n_features)"
+    );
+    goto except;
+  }
+  if (PyArray_NDIM(output_ar) != 1 && PyArray_NDIM(output_ar) != 2) {
+    PyErr_SetString(
+      PyExc_ValueError,
+      "y must have shape (n_samples,) or (n_samples, n_targets)"
+    );
+    goto except;
+  }
+  /**
+   * convert to C-contiguous NPY_DOUBLE arrays. NPY_ARRAY_IN_ARRAY is same as
+   * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. use temporary
+   * PyObject * to hold the results of the cast each time. X, y will be copied
+   * if they don't already satisfy the requirements.
+   */
+  PyArrayObject *temp_ar;
+  // attempt conversion of input_ar
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (temp_ar == NULL) {
+    goto except;
+  }
+  // on success, we can Py_DECREF input_ar and set input_ar to temp_ar
+  Py_DECREF(input_ar);
+  input_ar = temp_ar;
+  // attempt conversion of output_ar
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) output_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (temp_ar == NULL) {
+    goto except;
+  }
+  // on success, we can Py_DECREF output_ar and set output_ar to temp_ar
+  Py_DECREF(output_ar);
+  output_ar = temp_ar;
+  /**
+   * now we can call the solving routine. check self->solver to choose solver;
+   * only values are "qr" for QR decomp or "svd" for singular value decomp.
+   * each routine will set the coef_, intercept_, rank_, singular_, and fitted
+   * members of the LinearRegression *self.
+   */
+  if (strcmp(self->solver, "qr") == 0) {
+    // TODO: call QR solver, giving self, input_ar, output_ar
+  }
+  else if (strcmp(self->solver, "svd") == 0) {
+    // TODO: call SVD solver, giving self, input_ar, output_ar
+  }
+  // clean up input_ar, output_ar by Py_DECREF and return new ref to self
+  Py_DECREF(input_ar);
+  Py_DECREF(output_ar);
+  Py_INCREF(self);
+  return (PyObject *) self;
+// clean up input_ar, output_ar and return NULL on exceptions
+except:
+  Py_XDECREF(input_ar);
+  Py_XDECREF(output_ar);
+  return NULL;
+}
+
 // methods of the LinearRegression type
 static PyMethodDef LinearRegression_methods[] = {
+  {
+    "fit", (PyCFunction) LinearRegression_fit,
+    METH_VARARGS, LinearRegression_fit_doc
+  },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
 };
@@ -273,13 +398,13 @@ static PyTypeObject LinearRegression_type = {
   .tp_itemsize = 0,
   // adding Py_TPFAGS_BASETYPE allows LinearRegression to be subclassed
   .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-  // __new__, __init__, __del__ of LinearRegression class
+  // __new__, __init__, deallocator of LinearRegression class
   .tp_new = LinearRegression_new,
   .tp_init = (initproc) LinearRegression_init,
-  .tp_finalize = (destructor) LinearRegression_dealloc,
+  .tp_dealloc = (destructor) LinearRegression_dealloc,
   // members, getset members, and methods of the LinearRegression class
   .tp_members = LinearRegression_members,
-  .tp_getset = LinearRegression_getset,
+  .tp_getset = LinearRegression_getsets,
   .tp_methods = LinearRegression_methods
 };
 
@@ -303,6 +428,8 @@ static PyModuleDef _linreg_module = {
 PyMODINIT_FUNC
 PyInit__linreg(void)
 {
+  // import NumPy Array C API. automatically returns NULL on error.
+  import_array();
   // check if LinearRegression_type is ready. NULL on error
   if (PyType_Ready(&LinearRegression_type) < 0) {
     return NULL;
