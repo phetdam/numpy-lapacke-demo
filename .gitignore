@@ -1,8 +1,9 @@
-# ignore build, dist, egg-info, __pycache__, .vscode
+# ignore build, dist, egg-info, __pycache__, .vscode, shared objects
 /build
 /dist
 /*.egg-info
 **/__pycache__
 /.vscode
+**/*.so
 # ignore executable built from lapacke_demo/lapacke_demo.c
 /lapacke_demo/lapacke_demo
