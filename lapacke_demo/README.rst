@@ -102,16 +102,14 @@ and no multithreading, the corresponding ``gcc`` invocation is
 
    gcc -Wall -g -DMKL_INCLUDE -I/path/to/MKL/include -m64 \
    -o lapacke_demo lapacke_demo.c -L/path/to/MKL/lib \
-   -L/path/to/MKL/lib/intel64 -lmkl_intel_lp64 \
-   -lmkl_sequential -lmkl_core -lpthread -lm -ldl
+   -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 
 There are two paths passed with ``-L`` as the former occurs if Intel MKL is
 installed on Ubuntu using ``apt``. One can also use the
 `Intel MKL Link Line Advisor`__ to generate the linker line given different
 combinations of MKL version, OS, architecture, ``int`` size, threading layer,
-etc. The linker line in the above invocation, excluding the additional
-``-L/path/to/MKL/lib`` and the ``-Wl,--no-as-needed`` [#]_ linker flag, was
-generated using the Link Line Advisor.
+etc. The linker line in the above invocation was generated with help from the
+Intel Link Line Advisor.
 
 .. __: https://software.intel.com/content/www/us/en/develop/tools/oneapi/
    components/onemkl/link-line-advisor.html
@@ -121,14 +119,22 @@ generated using the Link Line Advisor.
    against ``libmkl_intel_lp64``. The differences in ILP64 and LP64 are covered
    more in detail in the `dedicated article on them`__.
 
-.. [#] We don't need ``-Wl,--no-as-needed`` since we didn't specify
-   ``-Wl,--as-needed`` and default behavior is same as passing
-   ``-Wl,--no-as-needed``.
+.. [#] The original line specified by Intel Link Line Advisor contained
+   ``-Wl,--no-as-needed``, which we do not need to specify since we didn't
+   specify ``-Wl,--as-needed`` and are already using default linking behavior.
+   The ``-L/path/to/MKL/lib`` flag may also need to be replaced with
+   ``-L/path/to/MKL/lib/intel64`` depending on the directory structure of the
+   Intel MKL installation. See the article in the Intel MKL Linux developer
+   guide on the installation directory structure `here`__ for more details.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
    oneapi-math-kernel-library/linking-in-detail/linking-with-interface-
    libraries/using-the-ilp64-interface-vs-lp64-interface.html
+
+.. __: https://software.intel.com/content/www/us/en/develop/documentation/
+   onemkl-linux-developer-guide/top/structure-of-the-intel-oneapi-math-kernel-
+   library/high-level-directory-structure.html
 
 Linker configuration
 ~~~~~~~~~~~~~~~~~~~~
