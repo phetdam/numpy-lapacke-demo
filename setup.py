@@ -113,6 +113,7 @@ def _get_ext_modules(env):
 
 
 def _setup():
+    """Main setup method wrapping setuptools.setup."""
     # get long description from README.rst
     with open("README.rst") as rf:
         long_desc = rf.read().strip()
