@@ -18,6 +18,9 @@
  * `-L/path/to/OpenBLAS -Wl,-rpath -Wl,/path/to/OpenBLAS` must be provided in
  * the former case since OpenBLAS by default is not installed in a directory
  * that is scanned during linking and during runtime.
+ * 
+ * To link to CBLAS and LAPACKE separately, one should link against liblapacke
+ * and libblas, using a proper runtime linker path specification.
  */
 
 #include <stdlib.h>
@@ -161,7 +164,7 @@ int main(int argc, char **argv)
   // free gsl_rng and return
   gsl_rng_free(rng);
 #else
-  printf("\nGSL disabled: -DGSL_INCLUDE not specified\n");
+  printf("\nGSL disabled: -DGSL_INCLUDE not specified\n\n");
 #endif /* GSL_INCLUDE */
 #endif /* __INTELLISENSE__ */
 
