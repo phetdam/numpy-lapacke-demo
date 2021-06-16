@@ -34,9 +34,9 @@ lapacke_link_line      = -L$(LAPACKE_PATH) -L$(LAPACKE_PATH)/lib \
 	-Wl,-rpath,$(LAPACKE_PATH)/lib/x86_64-linux-gnu -llapacke
 openblas_link_line     = -L$(OPENBLAS_PATH)/lib \
 	-Wl,-rpath,$(OPENBLAS_PATH)/lib -lopenblas
-mkl_link_line          = -Wl,--no-as-needed \
-	-L$(MKL_PATH)/lib/x86_64-linux-gnu -L$(MKL_PATH)/lib/intel64 \
-	-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
+mkl_link_line          = -L$(MKL_PATH)/lib/x86_64-linux-gnu \
+	-L$(MKL_PATH)/lib/intel64 -lmkl_intel_lp64 \
+	-lmkl_sequential -lmkl_core -lpthread -lm -ldl
 
 # phony targets
 .PHONY: dummy
