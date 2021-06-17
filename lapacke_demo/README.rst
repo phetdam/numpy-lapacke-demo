@@ -149,3 +149,17 @@ Execution
 
 Dead simple. After compilation, just run the demo with ``./lapacke_demo``. Some
 printing to standard output will be done.
+
+Linking CBLAS
+-------------
+
+Although ``lapacke_demo.c`` only shows an example of linking against LAPACKE
+implementations, linking against `CBLAS`__ can be added easily. When linking
+against Intel MKL, no changes need to be made, as ``mkl.h`` is the only
+required header and Intel MKL implements both CBLAS and LAPACKE interfaces in
+one library. OpenBLAS also implements both CBLAS and LAPACKE, but you will need
+to include ``cblas.h`` to use CBLAS functions. If using separate CBLAS and
+LAPACKE implementations, include ``cblas.h`` and add ``-lblas`` to the linker
+line. Add ``-I`` and ``-Wl,-rpath`` flags as necessary.
+
+.. __: http://www.netlib.org/blas/
