@@ -160,6 +160,7 @@ required header and Intel MKL implements both CBLAS and LAPACKE interfaces in
 one library. OpenBLAS also implements both CBLAS and LAPACKE, but you will need
 to include ``cblas.h`` to use CBLAS functions. If using separate CBLAS and
 LAPACKE implementations, include ``cblas.h`` and add ``-lblas`` to the linker
-line. Add ``-I`` and ``-Wl,-rpath`` flags as necessary.
+line. If the includes and library directories are not on the system search
+path, pass appropriate ``-I`` and ``-Wl,-rpath`` flags to ``gcc``.
 
 .. __: http://www.netlib.org/blas/
