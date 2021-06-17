@@ -21,11 +21,11 @@ TBD. However, the code will be written so that the C extensions can be built
 with either `Intel MKL`__, `OpenBLAS`__, or standard system CBLAS and LAPACKE
 implementations. But note that unless linked against Intel MKL using ILP64
 interface [#]_ or with OpenBLAS using 64-bit ``int``, i.e. built with
-``INTERFACE64=1``, none of the methods in ``npy_lapacke_demo`` should be called
-with NumPy arrays containing more elements than can be held in a 32-bit
-``int``. Otherwise, an ``OverflowError`` will be raised. However, since this
-package is intended for demonstration purposes, you shouldn't be using it for
-true "big data" applications.
+``INTERFACE64=1``, no ``npy_lapacke_demo`` function or method that accepts
+NumPy arrays should be passed arrays containing more elements than can be held
+in a 32-bit ``int``, as an ``OverflowError`` will be raised. However, since
+this package is intended for demonstration purposes, you shouldn't be using it
+for true "big data" applications anyways.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-developer-reference-c/top.html
