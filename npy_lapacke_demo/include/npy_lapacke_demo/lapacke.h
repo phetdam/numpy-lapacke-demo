@@ -10,10 +10,22 @@
 
 #ifndef NPY_LPK_LAPACKE_H
 #define NPY_LPK_LAPACKE_H
-// use LAPACKE includes if passed this preprocessor flag (by -D)
+// if linking with Netlib LAPACKE
 #if defined(LAPACKE_INCLUDE)
 #include <lapacke.h>
-// use Intel MKL includes if passed this preprocessor flag
+// define MKL_INT used in extension modules as in mkl.h
+#ifndef MKL_INT
+#define MKL_INT int
+#endif /* MKL_INT */
+// else if linking with OpenBLAS CBLAS
+#elif defined(OPENBLAS_INCLUDE)
+#include <cblas.h>
+// OpenBLAS has blasint typedef, so define MKL_INT using blasint. for LAPACKE
+// routines, should cast to lapack_int (same size as blasint in OpenBLAS)
+#ifndef MKL_INT
+#define MKL_INT blasint
+#endif /* MKL_INT */
+// else if linking with Intel MKL LAPACKE implementation
 #elif defined(MKL_INCLUDE)
 #include <mkl.h>
 // else error, no LAPACKE includes specified

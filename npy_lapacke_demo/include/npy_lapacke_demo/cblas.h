@@ -1,19 +1,31 @@
 /**
  * @file cblas.h
- * @brief Header file to automatically handle Intel MKL or CBLAS includes.
+ * @brief Header file to handle Intel MKL, OpenBLAS, or Netlib includes.
  * 
  * `npy_lapacke_demo` can be linked with a reference CBLAS implementation,
  * OpenBLAS, or Intel MKL, but Intel MKL uses a different header file, `mkl.h`,
  * while OpenBLAS uses the CBLAS header `cblas.h`. This file includes the
- * correct header file given an appropriate preprocessor macro is defined.
+ * correct header file given an appropriate preprocessor macro is defined, and
+ * defines some types appropriately so that
  */
 
 #ifndef NPY_LPK_CBLAS_H
 #define NPY_LPK_CBLAS_H
-// use CBLAS includes if passed this preprocessor flag (by -D)
+// if linking with Netlib CBLAS
 #if defined(CBLAS_INCLUDE)
 #include <cblas.h>
-// use Intel MKL includes if passed this preprocessor flag
+// define MKL_INT used in extension modules as in mkl.h
+#ifndef MKL_INT
+#define MKL_INT int
+#endif /* MKL_INT */
+// else if linking with OpenBLAS CBLAS
+#elif defined(OPENBLAS_INCLUDE)
+#include <cblas.h>
+// OpenBLAS has blasint typedef, so define MKL_INT using blasint
+#ifndef MKL_INT
+#define MKL_INT blasint
+#endif /* MKL_INT */
+// else if linking to Intel MKL
 #elif defined(MKL_INCLUDE)
 #include <mkl.h>
 // else error, no LAPACKE includes specified
