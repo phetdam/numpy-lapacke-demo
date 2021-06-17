@@ -32,8 +32,8 @@ for true "big data" applications anyways.
 
 .. __: https://www.openblas.net/
 
-.. [#] The ILP64 interface for Intel MKL uses 64-bit integers. See the Intel
-   article on `using ILP64 vs. LP64`__ for more details.
+.. [#] The ILP64 interface for Intel MKL uses 64-bit integers. See the
+   `Intel article on ILP64 vs. LP64`__ for more details.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
