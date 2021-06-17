@@ -9,13 +9,16 @@
 #include <Python.h>
 #include <structmember.h>
 
+#include <limits.h>
 #include <string.h>
+#include <stdio.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
-// npt_lapacke_demo/lapacke.h automatically handles the different includes
-// depending on whether Intel MKL or OpenBLAS/LAPACKE is linked
+// npt_lapacke_demo/*.h automatically handles the different includes
+// depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
+#include "npy_lapacke_demo/cblas.h"
 #include "npy_lapacke_demo/lapacke.h"
 
 // struct representing our linear regression estimator
@@ -225,7 +228,7 @@ PyDoc_STRVAR(
   "\n\n"
   "Returns ``self`` to allow method chaining. Note that ``X``, ``y`` will be\n"
   "copied if they are not of type :class:`numpy.ndarray`, not C-contiguous,\n"
-  "not memory aligned, and don't have ``dtype`` double."
+  "not memory-aligned, and don't have ``dtype`` double."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -337,11 +340,200 @@ except:
   return NULL;
 }
 
+// docstring for the LinearRegression predict method
+PyDoc_STRVAR(
+  LinearRegression_predict_doc,
+  "predict(X)"
+  "\n--\n\n"
+  "Compute predicted response given new inputs ``X``."
+  "\n\n"
+  "If the model has not been fitted, a :class:`RuntimeError` will be raised.\n"
+  "Also, if ``X`` is not of type :class:`numpy.ndarray`, not C-contiguous,\n"
+  "not memory-aligned, and dont' have ``dtype`` double."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "X : numpy.ndarray\n"
+  "    Points to evaluate the model at, shape ``(n_samples, n_features)``"
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "numpy.ndarray\n"
+  "    Predicted response, shape ``(n_samples,)`` or ``(n_samples, n_targets)``"
+);
+/**
+ * `predict` method for the `LinearRegression` class.
+ * 
+ * No keyword arguments needed, so `kwargs` is omitted.
+ * 
+ * @param self `LinearRegression *` instance
+ * @param args `PyObject *` positional args tuple
+ * @returns `PyArrayObject *` cast to `PyObject *` giving predicted responses.
+ */
+static PyObject *
+LinearRegression_predict(LinearRegression *self, PyObject *args)
+{
+  // if model is not fitted, raise RuntimeError
+  if (!self->fitted) {
+    PyErr_SetString(PyExc_RuntimeError, "cannot predict with unfitted model");
+    return NULL;
+  }
+  // input ndarray. set to NULL so Py_XDECREF on cleanup doesn't segfault.
+  PyArrayObject *input_ar = NULL;
+  // parse input and response, converting to ndarray. must Py_XDECREF on error.
+  if (!PyArg_ParseTuple(args, "O&", PyArray_Converter, (void *) &input_ar)) {
+    goto except_input_ar;
+  }
+  // check that input_ar has positive size and appropriate shape
+  if (PyArray_SIZE(input_ar) < 1) {
+    PyErr_SetString(PyExc_ValueError, "X must be nonempty");
+    goto except_input_ar;
+  }
+  // check that input_ar and output_ar have appropriate shape
+  if (PyArray_NDIM(input_ar) != 2) {
+    PyErr_SetString(
+      PyExc_ValueError, "X must have shape (n_samples, n_features)"
+    );
+    goto except_input_ar;
+  }
+  /**
+   * convert to C-contiguous NPY_DOUBLE array. NPY_ARRAY_IN_ARRAY is same as
+   * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. use temporary
+   * PyObject * to hold the results of the cast.
+   */
+  PyArrayObject *temp_ar;
+  // attempt conversion of input_ar
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (temp_ar == NULL) {
+    goto except_input_ar;
+  }
+  // on success, we can Py_DECREF input_ar and set input_ar to temp_ar
+  Py_DECREF(input_ar);
+  input_ar = temp_ar;
+  // for convenience, get number of rows and columns of input_ar
+  npy_intp n_samples, n_features;
+  n_samples = PyArray_DIMS(input_ar)[0];
+  n_features = PyArray_DIMS(input_ar)[1];
+/**
+ * typically npy_intp has same size as long, 64-bit on 64-bit architecture.
+ * if we aren't linked against Intel MKL (make links to ILP64, 64-bit int),
+ * i.e. MKL_ILP64 not defind, and not linked against OpenBLAS built with
+ * INTERFACE64=1 for 64-bit int, i.e. OPENBLAS_USE64BITINT not defined, we need
+ * to check if the value of n_samples, n_features exceeds INT_MAX. if so,
+ * raise OverflowError, else passing n_samples, n_features > 2^32 - 1 can lead
+ * to weird results, possibly segmentation fault.
+ */ 
+#if !defined(MKL_ILP64) && !defined(OPENBLAS_USE64BITINT)
+  if (n_samples > INT_MAX || n_features > INT_MAX) {
+    PyErr_SetString(
+      PyExc_OverflowError,
+      "CBLAS/LAPACKE implementation does not support 64-bit indexing"
+    );
+    goto except_input_ar;
+  }
+#endif
+  // output array, which will have NPY_ARRAY_CARRAY flags and type NPY_DOUBLE
+  PyArrayObject *output_ar;
+  // double * for input_ar, output_ar, and self->coef_ data
+  double *input_data, *output_data, *coef_data;
+  input_data = (double *) PyArray_DATA(input_ar);
+  coef_data = (double *) PyArray_DATA((PyArrayObject *) self->coef_);
+  // check shape of parameters. if single-target, i.e. PyArray_NDIM gives 1,
+  // we use cblas_dgemv for coefficient multiplication.
+  if (PyArray_NDIM((PyArrayObject *) self->coef_) == 1) {
+    // if single-target, output_ar has shape (n_samples,)
+    output_ar = (PyArrayObject *) PyArray_SimpleNew(
+      1, PyArray_DIMS(input_ar), NPY_DOUBLE
+    );
+    if (output_ar == NULL) {
+      goto except_input_ar;
+    }
+    // on success, set output_data. we need this later
+    output_data = (double *) PyArray_DATA(output_ar);
+    // get the double intercept from self->intercept_, a Python float. returns
+    // -1 on failure so if PyErr_Occurred we have an exception
+    double intercept = PyFloat_AsDouble(self->intercept_);
+    if (PyErr_Occurred()) {
+      goto except_output_ar;
+    }
+    // use cblas_dgemv to compute product input_ar @ self->coef_. the result is
+    // written to the data pointer of output_ar.
+    cblas_dgemv(
+      CblasRowMajor, CblasNoTrans, (MKL_INT) n_samples,
+      (const MKL_INT) n_features, 1, (double *) input_data,
+      (const MKL_INT) n_features, (double *) coef_data, 1, 0,
+      (double *) output_data, 1
+    );
+    // add the intercept to each element of output_ar if nonzero
+    if (intercept != 0) {
+      for (npy_intp i = 0; i < n_samples; i++) {
+        output_data[i] += intercept;
+      }
+    }
+    // done computing our result, so return to main function body
+  }
+  // else if multi-target, i.e. PyArray_NDIM gives 2, we use cblas_dgemm
+  else {
+    // get number of targets, i.e. PyArray_DIMS(self->coef_)[0]
+    npy_intp n_targets = PyArray_DIMS((PyArrayObject *) self->coef_)[0];
+    // create output_ar dims and output_ar, shape (n_samples, n_targets)
+    npy_intp dims[] = {n_samples, n_targets};
+    output_ar = (PyArrayObject *) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+    if (output_ar == NULL) {
+      goto except_input_ar;
+    }
+    // again, set output_data on success
+    output_data = (double *) PyArray_DATA(output_ar);
+    // use cblas_dgemm to compute product input_ar @ self->coef_.T, where the
+    // results is written to the data pointer of output_ar
+    cblas_dgemm(
+      CblasRowMajor, CblasNoTrans, CblasTrans, (const MKL_INT) n_samples,
+      (const MKL_INT) n_targets, (const MKL_INT) n_features, 1,
+      (const double *) input_data, (const MKL_INT) n_features,
+      (const double *) coef_data, (const MKL_INT) n_features, 0,
+      output_data, (const MKL_INT) n_targets
+    );
+    /**
+     * in multi-target, if fit_intercept=False, self->intercept_ is Python
+     * float with value 0. so if self->intercept_ not ndarray, it's just 0,
+     * so we only need to handle intercept if self->intercept_ is ndarray.
+     */
+    if (!PyArray_Check(self->intercept_)) {
+      // get pointer to self->intercept_ data
+      double *intercept_data = (double *) PyArray_DATA(
+        (PyArrayObject *) self->intercept_
+      );
+      // add self->intercept_[j] to each jth column of output_ar
+      for (npy_intp i = 0; i < n_samples; i++) {
+        for (npy_intp j = 0; j < n_targets; j++) {
+          output_data[i * n_targets + j] += intercept_data[j];
+        }
+      }
+    }
+    // done computing out result, so return to main function body
+  }
+  // clean up input_ar and return output_ar
+  Py_DECREF(input_ar);
+  return (PyObject *) output_ar;
+// clean up input_ar, output_ar and return NULL on exceptions
+except_output_ar:
+  Py_DECREF(output_ar);
+except_input_ar:
+  Py_XDECREF(input_ar);
+  return NULL;
+}
+
 // methods of the LinearRegression type
 static PyMethodDef LinearRegression_methods[] = {
   {
     "fit", (PyCFunction) LinearRegression_fit,
     METH_VARARGS, LinearRegression_fit_doc
+  },
+  {
+    "predict", (PyCFunction) LinearRegression_predict,
+    METH_VARARGS, LinearRegression_predict_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
@@ -408,6 +600,30 @@ static PyTypeObject LinearRegression_type = {
   .tp_methods = LinearRegression_methods
 };
 
+/*
+static PyObject *
+test_array_flags(PyObject *self, PyObject *args)
+{
+  npy_intp dims[] = {4, 2};
+  PyArrayObject *ar = (PyArrayObject *) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+  printf("flags for ar: %x\n", PyArray_FLAGS(ar));
+  printf("NPY_ARRAY_CARRAY: %x\n", NPY_ARRAY_CARRAY);
+  printf("PyArray_ISCARRAY? %u\n", PyArray_ISCARRAY(ar));
+  printf("PyArray_ISONESEGMENT? %d\n", PyArray_ISONESEGMENT(ar));
+#ifdef OPENBLAS_CONFIG_H
+  printf("sizeof(blasint): %lu\n", sizeof(blasint));
+#endif OPENBLAS_CONFIG_H
+  return (PyObject *) ar;
+}
+
+// methods of the LinearRegression type
+static PyMethodDef _linreg_methods[] = {
+  {"test_array_flags", (PyCFunction) test_array_flags, METH_NOARGS, NULL},
+  // sentinel marking end of array
+  {NULL, NULL, 0, NULL}
+};
+*/
+
 // _linreg module docstring
 PyDoc_STRVAR(
   _linreg_doc,
@@ -419,9 +635,11 @@ PyDoc_STRVAR(
 // _linreg module definition
 static PyModuleDef _linreg_module = {
   PyModuleDef_HEAD_INIT,
+  // name, docstring, size = -1 to disable subinterpreter support
   .m_name = "_linreg",
   .m_doc = _linreg_doc,
-  .m_size = -1
+  .m_size = -1/*,
+  .m_methods = _linreg_methods*/
 };
 
 // module initialization function
