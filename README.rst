@@ -3,9 +3,10 @@
 npy_lapacke_demo
 =================
 
-A tiny Python package demonstrating `LAPACKE`__ calls on NumPy arrays in C
-extension modules.
+A tiny Python package demonstrating `CBLAS`__ and `LAPACKE`__ calls on NumPy
+arrays in C extension modules.
 
+.. __: http://www.netlib.org/blas/
 .. __: https://www.netlib.org/lapack/lapacke.html
 
 
@@ -16,8 +17,8 @@ From source
 ~~~~~~~~~~~
 
 TBD. However, the code will be written so that the C extensions can be built
-with either `Intel MKL`__, `OpenBLAS`__, or a standard LAPACKE implementation
-available on your system.
+with either `Intel MKL`__, `OpenBLAS`__, or standard system CBLAS and LAPACKE
+implementations.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-developer-reference-c/top.html
