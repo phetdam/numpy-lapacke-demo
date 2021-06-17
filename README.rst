@@ -3,12 +3,12 @@
 npy_openblas_demo
 =================
 
-A tiny Python package demonstrating OpenBLAS [#]_ `CBLAS`__ and `LAPACKE`__
-calls on NumPy arrays in C extension modules.
+A tiny Python package demonstrating how to use OpenBLAS [#]_ with NumPy
+arrays in C extension modules.
 
 .. [#] The package name is a misnomer, as the package may be linked against a
-   few different CBLAS and LAPACKE implementations. See the `Installation`_
-   section for more details.
+   few different `CBLAS`_ and `LAPACKE`_ implementations. See the
+   `Installation`_ section for more details.
 
 .. __: http://www.netlib.org/blas/
 
