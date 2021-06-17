@@ -1,5 +1,5 @@
 # Makefile to build npy_lapacke_demo extensions, build + execute [gtest] tests.
-# link against OpenBLAS by default but also allow LAPACKE and Intel MKL builds.
+# link against OpenBLAS by default but also allow Netlib and Intel MKL builds.
 
 # package name
 pkg_name               = npy_lapacke_demo
@@ -20,13 +20,13 @@ PYTHON                 = python3
 BUILD_FLAGS            =
 # flags to pass to setup.py dist, bdist_wheel, sdist
 DIST_FLAGS             =
-# flags to indicate which LAPACKE implementation should be used
+# flags to indicate which CBLAS + LAPACKE implementation should be used
 USE_OPENBLAS          ?=
-USE_LAPACKE           ?=
+USE_NETLIB            ?=
 USE_MKL               ?=
-# location of OpenBLAS, LAPACKE, MKL install paths
+# location of OpenBLAS, (reference) CBLAS + LAPACKE, MKL install paths
 OPENBLAS_PATH         ?= /opt/OpenBLAS
-LAPACKE_PATH          ?= /usr
+NETLIB_PATH           ?= /usr
 MKL_PATH              ?= /usr
 # python compiler and linker flags for use when linking debug python into
 # external C/C++ code; can be externally specified. gcc/g++ requires -fPIE.
