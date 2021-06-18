@@ -129,7 +129,8 @@ static
 #endif
 int
 qr_solver(
-  LinearRegression *self, PyArrayObject *input_ar, PyArrayObject *output_ar
+  LinearRegression *self,
+  PyArrayObject *input_ar, PyArrayObject *output_ar
 )
 {
   // get number of samples, features, and targets
@@ -261,7 +262,7 @@ qr_solver(
   }
   // else we need to compute the intercept
   else {
-    // TODO: implement function for computing intercept given coef_ar
+    // TODO: compute intercept given coef_ar, input_mean, output_mean
     self->intercept_ = PyFloat_FromDouble(0.);
     if (self->intercept_ == NULL) {
       goto except_coef_ar;
@@ -409,7 +410,7 @@ LinearRegression_coef_getter(LinearRegression *self, void *closure)
 {
   // if not fitted, raise AttributeError
   if (!self->fitted) {
-    PyErr_SetString(PyExc_AttributeError, "coef_ only availble after fitting");
+    PyErr_SetString(PyExc_AttributeError, "coef_ only available after fitting");
     return NULL;
   }
   // else return coef_. note that fitted == 1 => self->coef_ != NULL.
@@ -565,7 +566,7 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
     goto except;
   }
   // check that n_samples >= n_features; required
-  if (PyArray_DIMS(input_ar)[0] < n_features) {
+  if (n_samples < n_features) {
     PyErr_SetString(PyExc_ValueError, "n_samples >= n_features required");
     goto except;
   }
