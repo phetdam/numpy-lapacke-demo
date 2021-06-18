@@ -145,7 +145,7 @@ def _setup():
         url="https://github.com/phetdam/scipy_fastmin",
         packages=find_packages(),
         python_requires=">=3.6",
-        install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
+        install_requires=["numpy>=1.19.1"],
         ext_package=__package__,
         ext_modules=_get_ext_modules(os.environ)
     )
