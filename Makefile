@@ -14,7 +14,7 @@ py_deps                = setup.py $(wildcard $(pkg_name)/*.py) \
 # some static functions within the C extension modules since they aren't
 # accessible from Python (not in module's method table, not safely castable to
 # PyCFunction), we directly include them in the test runner. the runner is
-# built with ENABLE_INTERNAL_TESTING so the relevant functions are not static.
+# built with EXPOSE_INTERNAL so the relevant functions are not static.
 gtest_deps             = $(wildcard $(gtest_dir)/*.cc) $(ext_deps)
 # C and C++ compilers, of course
 CC                     = gcc
