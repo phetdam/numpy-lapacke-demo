@@ -7,8 +7,9 @@ pkg_name               = npy_lapacke_demo
 gtest_dir              = gtest
 # C extension module dependencies
 ext_deps               = $(wildcard $(pkg_name)/regression/*.c)
-# Python source dependencies
-py_deps                = $(wildcard $(pkg_name)/*.py)
+# Python source dependencies. important to include setup.py, which does config
+py_deps                = setup.py $(wildcard $(pkg_name)/*.py) \
+	$(wildcard $(pkg_name)/regression/*.py)
 # dependencies for test running code. since we would also like to directly test
 # some static functions within the C extension modules since they aren't
 # accessible from Python (not in module's method table, not safely castable to

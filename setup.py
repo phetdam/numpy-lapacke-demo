@@ -70,15 +70,29 @@ def _get_ext_modules(env):
         raise RuntimeError(
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
         )
+    # get flag indicating whether to build with access to internal extension
+    # module functions. ENABLE_INTERNAL_TESTING exposes wrappers to methods
+    # private to the module, i.e. not safely castable to PyCFunction and not
+    # part of the module's method table. these functions can then be accessed
+    # from the Python interpreter and unit tested.
+    if (
+        "ENABLE_INTERNAL_TESTING" in env and
+        env["ENABLE_INTERNAL_TESTING"] == "1"
+    ):
+        cblap_macros = [("ENABLE_INTERNAL_TESTING", None)]
+    else:
+        cblap_macros = []
     # CBLAS + LAPACKE implementation include dirs (include_dirs), library dirs
     # (library_dirs), runtime libary dirs (runtime_library_dirs), names of
     # libraries to link during extension building (libraries), preprocessor
-    # macros to define during compilation (define_macros)
+    # macros to also define during compilation (define_macros), extra
+    # compilation arguments that need to be passed (extra_compile_args)
     if USE_OPENBLAS:
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
         cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
         cblap_lib_names = ["openblas"]
-        cblap_macros = [("OPENBLAS_INCLUDE", None)]
+        cblap_macros += [("OPENBLAS_INCLUDE", None)]
+        cblap_compile_args = []
     elif USE_NETLIB:
         cblap_include_dirs = [
             f"{NETLIB_PATH}/include", f"{NETLIB_PATH}/include/x86_64-linux-gnu"
@@ -89,7 +103,8 @@ def _get_ext_modules(env):
             f"{NETLIB_PATH}/lib/x86_64-linux-gnu"
         ]
         cblap_lib_names = ["blas", "lapacke"]
-        cblap_macros = [("CBLAS_INCLUDE", None), ("LAPACKE_INCLUDE", None)]
+        cblap_macros += [("CBLAS_INCLUDE", None), ("LAPACKE_INCLUDE", None)]
+        cblap_compile_args = []
     elif USE_MKL:
         cblap_include_dirs = [f"{MKL_PATH}/include", f"{MKL_PATH}/include/mkl"]
         cblap_lib_dirs = [
@@ -100,7 +115,8 @@ def _get_ext_modules(env):
             "mkl_core", "pthread", "m", "dl"
         ]
         # note we pass -DMKL_ILP64 to compiler so MKL_INT is 64 bits
-        cblap_macros = [("MKL_ILP64", None), ("MKL_INCLUDE", None)]
+        cblap_macros += [("MKL_ILP64", None), ("MKL_INCLUDE", None)]
+        cblap_compile_args = ["-m64"]
     # return C extension modules
     return [
         # npy_lapacke_demo.regression._linreg, providing LinearRegression class
@@ -110,7 +126,7 @@ def _get_ext_modules(env):
             include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
             library_dirs=cblap_lib_dirs, runtime_library_dirs=cblap_lib_dirs,
             libraries=cblap_lib_names, define_macros=cblap_macros,
-            extra_compile_args=_EXT_COMPILE_ARGS
+            extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
         )
     ]
 
