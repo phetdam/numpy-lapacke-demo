@@ -19,7 +19,7 @@
 #endif /* MKL_INT */
 // else if linking with OpenBLAS CBLAS
 #elif defined(OPENBLAS_INCLUDE)
-#include <cblas.h>
+#include <lapacke.h>
 // OpenBLAS has blasint typedef, so define MKL_INT using blasint. for LAPACKE
 // routines, should cast to lapack_int (same size as blasint in OpenBLAS)
 #ifndef MKL_INT
