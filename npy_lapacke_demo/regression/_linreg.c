@@ -669,9 +669,9 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
   }
   // input ndarray. set to NULL so Py_XDECREF on cleanup doesn't segfault.
   PyArrayObject *input_ar = NULL;
-  // parse input and response, converting to ndarray. must Py_XDECREF on error.
+  // parse input and response, converting to ndarray. NULL on error.
   if (!PyArg_ParseTuple(args, "O&", PyArray_Converter, (void *) &input_ar)) {
-    goto except_input_ar;
+    return NULL;
   }
   // check that input_ar has positive size and appropriate shape
   if (PyArray_SIZE(input_ar) < 1) {
@@ -789,7 +789,7 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
      * float with value 0. so if self->intercept_ not ndarray, it's just 0,
      * so we only need to handle intercept if self->intercept_ is ndarray.
      */
-    if (!PyArray_Check(self->intercept_)) {
+    if (PyArray_Check(self->intercept_)) {
       // get pointer to self->intercept_ data
       double *intercept_data = (double *) PyArray_DATA(
         (PyArrayObject *) self->intercept_
@@ -810,7 +810,7 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
 except_output_ar:
   Py_DECREF(output_ar);
 except_input_ar:
-  Py_XDECREF(input_ar);
+  Py_DECREF(input_ar);
   return NULL;
 }
 
