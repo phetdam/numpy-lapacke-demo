@@ -30,14 +30,273 @@ typedef struct {
   const char *solver;
   // coefficients and intercept of the linear model
   PyObject *coef_, *intercept_;
-  // effective rank and singular values of the data matrix. singular_ is NULL
-  // unless we solve using SVD. trailing underscore follows sklearn convention.
-  int rank_;
+  /**
+   * effective rank and singular values of the data matrix. singular_ is NULL
+   * unless we solve using SVD. trailing underscore follows sklearn convention.
+   * use long to support very large matrices when linked with ILP64 Intel MKL
+   * or a 64-bit version of OpenBLAS, i.e. built with INTERFACE64=1
+   */
+  long rank_;
   PyObject *singular_;
   // private attribute. 1 when model is fitted, 0 otherwise. the members with
   // trailing underscores are accessible iff fitted is 1.
   char fitted;
 } LinearRegression;
+
+/**
+ * Computes mean across rows for 2D ndarray or scalar mean for 1D ndarray.
+ * 
+ * Do NOT call without proper argument checking. Could use `PyArray_Mean` but
+ * since this function is specialized for 2D arrays it's faster to do manually.
+ * 
+ * @param ar `PyArrayObject *` ndarray to operate on. Must have type
+ *     `NPY_DOUBLE`, flags `NPY_ARRAY_CARRAY` (row-major ordering).
+ * @returns `PyObject *`, either 1D `PyArrayObject *` in case `ar` is 2D or
+ *     `PyFLoatObject *` in case `ar` is 1D. `NULL` on error + exception set.
+ *     If `PyArrayObject *`, `NPY_ARRAY_CARRAY` flags are guaranteed.
+ */
+static PyObject *
+npy_vector_matrix_mean(PyArrayObject *ar)
+{
+  // data pointer to ar
+  double *data = (double *) PyArray_DATA(ar);
+  // PyObject * for mean. either PyArrayObject * or PyFloatObject *
+  PyObject *mean_o;
+  // if 1D array, just compute flat mean and use PyFloatObject *
+  if (PyArray_NDIM(ar) == 1) {
+    double mean_d = 0;
+    for (npy_intp i = 0; i < PyArray_SIZE(ar); i++) {
+      mean_d += data[i];
+    }
+    mean_o = PyFloat_FromDouble(mean_d / (double) PyArray_SIZE(ar));
+    // on error, mean_o is NULL; it will be returned after we break
+  }
+  // else if 2D array
+  else if (PyArray_NDIM(ar) == 2) {
+    // get number of rows, cols
+    npy_intp n_rows, n_cols;
+    n_rows = PyArray_DIMS(ar)[0];
+    n_cols = PyArray_DIMS(ar)[1];
+    // dims for the mean of the rows
+    npy_intp mean_dims[] = {n_cols};
+    // use ndarray to hold the output. has NPY_ARRAY_CARRAY flags
+    mean_o = PyArray_SimpleNew(1, mean_dims, NPY_DOUBLE);
+    if (mean_o == NULL) {
+      return NULL;
+    }
+    // data pointer for mean_ar
+    double *mean_data = (double *) PyArray_DATA((PyArrayObject *) mean_o);
+    // compute means down the rows of ar. on completion, return
+    for (npy_intp j = 0; j < n_cols; j++) {
+      // compute column mean
+      double mean_j = 0;
+      for (npy_intp i = 0; i < n_cols; i++) {
+        mean_j += data[i * n_cols + j];
+      }
+      mean_data[j] = mean_j / n_rows;
+    }
+  }
+  // else error, not intended for ndarrays with more dimensions
+  else {
+    PyErr_SetString(PyExc_ValueError, "ar must be 1D or 2D only");
+    return NULL;
+  }
+  // return mean_o; could be NULL if error
+  return mean_o;
+}
+
+/**
+ * QR solver for the `LinearRegression` class.
+ * 
+ * Do NOT call without proper argument checking. Copies input matrix.
+ * 
+ * `coef_` attribute will point to `PyArrayObject *`, `intercept_` attribute
+ * will point to `PyArrayObject *` if multi-target else a `PyFloatObject *`
+ * for single-target, and `singular_` will be `Py_None`. `fitted` set to `1`.
+ * 
+ * @param self `LinearRegression *` instance
+ * @param input_ar `PyArrayObject *` input, shape `(n_samples, n_features)`
+ * @param output_ar `PyArrayObject *` response, shape `(n_samples,)` for single
+ *     output or shape `(n_samples, n_targets)` for multi-output
+ * @returns `0` on success, `-1` on error.
+ */
+static int
+qr_solver(
+  LinearRegression *self, PyArrayObject *input_ar, PyArrayObject *output_ar
+)
+{
+  // get number of samples, features, and targets
+  npy_intp n_samples, n_features, n_targets;
+  n_samples = PyArray_DIMS(input_ar)[0];
+  n_features = PyArray_DIMS(input_ar)[1];
+  n_targets = (PyArray_NDIM(output_ar) == 1) ? 1 : PyArray_DIMS(output_ar)[1];
+  // centered copy of input_ar actually used in calculation
+  PyArrayObject *input_cent_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
+  );
+  if (input_cent_ar == NULL) {
+    return -1;
+  }
+  // copy of output_ar, used to store the result
+  PyArrayObject *output_copy_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) output_ar, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
+  );
+  if (output_copy_ar == NULL) {
+    goto except_input_cent_ar;
+  }
+  /**
+   * we need to center input_cent_ar and need the means of the rows of input_ar,
+   * output_ar to compute the intercept, so we compute them now. the mean of
+   * the of the input_ar rows is guaranteed to be PyArrayObject *, but the
+   * mean of the rows of output_ar might be PyFloatObject * if n_targets = 1.
+   */
+  PyArrayObject *input_mean;
+  input_mean = (PyArrayObject *) npy_vector_matrix_mean(input_ar);
+  if (input_mean == NULL) {
+    goto except_output_copy_ar;
+  }
+  PyObject *output_mean = npy_vector_matrix_mean(output_ar);
+  if (output_mean == NULL) {
+    goto except_input_mean;
+  }
+  // double * to the data of input_cent_ar, output_copy_ar, input_mean
+  double *input_cent_data = (double *) PyArray_DATA(input_cent_ar);
+  double *output_copy_data = (double *) PyArray_DATA(output_copy_ar);
+  double *input_mean_data = (double *) PyArray_DATA(input_mean);
+  // center input_cent_data by subtracting out the means for each column
+  for (npy_intp j = 0; j < n_features; j++) {
+    for (npy_intp i = 0; i < n_samples; i++) {
+      input_cent_data[i * n_features + j] -= input_mean_data[j];
+    }
+  }
+  // temp to hold information on the pivoted columns of input_cent_data.
+  // we use PyMem_RawMalloc so the interpreter can track all the memory used.
+  lapack_int *pivot_idx = (lapack_int *) PyMem_RawMalloc(
+    n_features * sizeof(lapack_int)
+  );
+  if (pivot_idx == NULL ) {
+    goto except_output_mean;
+  }
+/**
+ * typically npy_intp has same size as long, 64-bit on 64-bit architecture.
+ * if we aren't linked against Intel MKL (make links to ILP64, 64-bit int),
+ * i.e. MKL_ILP64 not defined, and not linked against OpenBLAS built with
+ * INTERFACE64=1 for 64-bit int, i.e. OPENBLAS_USE64BITINT not defined, we need
+ * to check if n_samples, n_features, n_targets exceeds INT_MAX. if so, raise
+ * raise OverflowError, as values > 2^32 - 1 can cause dangerous results.
+ */ 
+#if !defined(MKL_ILP64) && !defined(OPENBLAS_USE64BITINT)
+  if (n_samples > INT_MAX || n_features > INT_MAX || n_targets > INT_MAX) {
+    PyErr_SetString(
+      PyExc_OverflowError,
+      "CBLAS/LAPACKE implementation does not support 64-bit indexing"
+    );
+    goto except_pivot_idx;
+  }
+#endif
+  // status returned by dgelsy. if -i returned, the ith input is illegal
+  lapack_int qr_status;
+  /**
+   * call dgelsy on input_cent_data, output_copy_data, pivot_idx which solves
+   * linear system using QR decomposition. all arrays overwritten, and the
+   * result is stored in output_copy_ar. LAPACKE_dgelsy returns < 0 => error.
+   * arbitrarily choose 1e-8 as reciprocal of max condition of input_cent_data.
+   */
+  long rank_;
+  qr_status = LAPACKE_dgelsy(
+    LAPACK_ROW_MAJOR, (lapack_int) n_samples, (lapack_int) n_features,
+    (lapack_int) n_targets, input_cent_data, (lapack_int) n_features,
+    output_copy_data, (lapack_int) n_targets,
+    pivot_idx, 1e-8, (lapack_int *) &rank_
+  );
+  // if qr_status < 0, error, so we need to set an exception
+  if (qr_status < 0) {
+    PyErr_Format(
+      PyExc_RuntimeError, "LAPACKE_dgelsy: parameter %ld is an illegal value. "
+      "please ensure X, y do not contain nan or inf values", -qr_status
+    );
+    goto except_pivot_idx;
+  }
+  // dims for coef_. if multi-target, shape (n_targets, n_features), while if
+  // single-target, shape (n_targets,), so different initializations.
+  npy_intp coef_dims[2];
+  if (n_targets == 1) {
+    coef_dims[0] = n_features;
+  }
+  else {
+    coef_dims[0] = n_targets;
+    coef_dims[1] = n_features;
+  }
+  // create new NPY_ARRAY_CARRAY to hold the solution in output_copy_ar. if
+  // single target, ignore second (unset) dim, else use both for multi
+  PyArrayObject *coef_ar = (PyArrayObject *) PyArray_SimpleNew(
+    (n_targets == 1) ? 1 : 2, coef_dims, NPY_DOUBLE
+  );
+  if (coef_ar == NULL) {
+    goto except_pivot_idx;
+  }
+  // copy data from output_copy_data into coef_ar's data pointer
+  double *coef_data = (double *) PyArray_DATA(coef_ar);
+  for (npy_intp i = 0; i < n_targets; i++) {
+    for (npy_intp j = 0; j < n_features; j++) {
+      coef_data[i * n_features + j] = output_copy_data[j * n_targets + i];
+    }
+  }
+  self->rank_ = rank_;
+  // self->rank_ already set, so we set coef_ now
+  self->coef_ = (PyObject *) coef_ar;
+  // if self->fit_intercept is 0, set fit_intercept to new PyFloatObject *
+  if (!self->fit_intercept) {
+    self->intercept_ = PyFloat_FromDouble(0.);
+    if (self->intercept_ == NULL) {
+      goto except_coef_ar;
+    }
+  }
+  // else we need to compute the intercept
+  else {
+    // TODO: implement function for computing intercept given coef_ar
+    self->intercept_ = PyFloat_FromDouble(0.);
+    if (self->intercept_ == NULL) {
+      goto except_coef_ar;
+    }
+  }
+  // self->rank_ already been set. singular_ always None when using QR solver
+  Py_INCREF(Py_None);
+  self->singular_ = Py_None;
+  // coef_, intercept_, rank_, singular_ have been set. clean up time!
+// if using Intel MKL, use mkl_free with mkl_malloc, else use normal free
+#ifdef MKL_INCLUDE
+  mkl_free((void *) pivot_idx);
+#else
+  free((void *) pivot_idx);
+#endif /* MKL_INCLUDE */
+  // clean up PyObject * previously allocated (except coef_ar)
+  Py_DECREF(output_mean);
+  Py_DECREF(input_mean);
+  Py_DECREF(output_copy_ar);
+  Py_DECREF(input_cent_ar);
+  // done with cleanup, so set self->fitted to 1 and we can return
+  self->fitted = 1;
+  return 0;
+// clean up all the allocated PyObject * and memory on failure
+except_coef_ar:
+  Py_DECREF(coef_ar);
+except_pivot_idx:
+#ifdef MKL_INCLUDE
+  mkl_free(pivot_idx);
+#else
+  free((void *) pivot_idx);
+#endif /* MKL_INCLUDE */
+except_output_mean:
+  Py_DECREF(output_mean);
+except_input_mean:
+  Py_DECREF(input_mean);
+except_output_copy_ar:
+  Py_DECREF(output_copy_ar);
+except_input_cent_ar:
+  Py_DECREF(input_cent_ar);
+  return -1;
+}
 
 /**
  * `__del__` method for the `LinearRegression` class.
@@ -289,6 +548,20 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
     );
     goto except;
   }
+  // get number of samples, number of features
+  npy_intp n_samples, n_features;
+  n_samples = PyArray_DIMS(input_ar)[0];
+  n_features = PyArray_DIMS(output_ar)[1];
+  // check that y has correct number of samples
+  if (PyArray_DIMS(output_ar)[0] != n_samples) {
+    PyErr_SetString(PyExc_ValueError, "number of rows of X, y must match");
+    goto except;
+  }
+  // check that n_samples >= n_features; required
+  if (PyArray_DIMS(input_ar)[0] < n_features) {
+    PyErr_SetString(PyExc_ValueError, "n_samples >= n_features required");
+    goto except;
+  }
   /**
    * convert to C-contiguous NPY_DOUBLE arrays. NPY_ARRAY_IN_ARRAY is same as
    * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. use temporary
@@ -323,10 +596,18 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
    * members of the LinearRegression *self.
    */
   if (strcmp(self->solver, "qr") == 0) {
-    // TODO: call QR solver, giving self, input_ar, output_ar
+    // call QR solving routine (calls dgelsy). returns -1 on error
+    if (qr_solver(self, input_ar, output_ar) < 0) {
+      goto except;
+    }
   }
   else if (strcmp(self->solver, "svd") == 0) {
     // TODO: call SVD solver, giving self, input_ar, output_ar
+    /*
+    if (svd_solver(self, input_ar, output_ar) < 0) {
+      goto except;
+    }
+    */
   }
   // clean up input_ar, output_ar by Py_DECREF and return new ref to self
   Py_DECREF(input_ar);
@@ -461,9 +742,9 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
     // use cblas_dgemv to compute product input_ar @ self->coef_. the result is
     // written to the data pointer of output_ar.
     cblas_dgemv(
-      CblasRowMajor, CblasNoTrans, (MKL_INT) n_samples,
-      (const MKL_INT) n_features, 1, (double *) input_data,
-      (const MKL_INT) n_features, (double *) coef_data, 1, 0,
+      CblasRowMajor, CblasNoTrans, (const MKL_INT) n_samples,
+      (const MKL_INT) n_features, 1, (const double *) input_data,
+      (const MKL_INT) n_features, (const double *) coef_data, 1, 0,
       (double *) output_data, 1
     );
     // add the intercept to each element of output_ar if nonzero
