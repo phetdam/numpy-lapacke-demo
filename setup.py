@@ -110,12 +110,8 @@ def _get_ext_modules(env):
         cblap_lib_dirs = [
             f"{MKL_PATH}/lib/x86_64-linux-gnu", f"{MKL_PATH}/lib/intel64"
         ]
-        cblap_lib_names = [
-            "mkl_intel_ilp64", "mkl_sequential",
-            "mkl_core", "pthread", "m", "dl"
-        ]
-        # note we pass -DMKL_ILP64 to compiler so MKL_INT is 64 bits
-        cblap_macros += [("MKL_ILP64", None), ("MKL_INCLUDE", None)]
+        cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
+        cblap_macros += [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
     # return C extension modules
     return [

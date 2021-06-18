@@ -29,6 +29,14 @@ DIST_FLAGS             =
 USE_OPENBLAS          ?=
 USE_NETLIB            ?=
 USE_MKL               ?=
+# default MKL interface layer to use with single dynamic library. other options
+# include "LP64", "ILP64", or "GNU,LP64". note that without the GNU prefix
+# calls to Intel MKL functions result is ugly crashes!
+MKL_INTERFACE_LAYER   ?= GNU,ILP64
+# default MKL threading layer to use with single dynamic library. other options
+# include "INTEL" for Intel threading, "GNU" for libgomp threading, "PGI" for
+# PGI threading (not sure what this is), "TBB" for Intel TBB threading.
+MKL_THREADING_LAYER   ?= SEQUENTIAL
 # location of OpenBLAS, (reference) CBLAS + LAPACKE, MKL install paths
 OPENBLAS_PATH         ?= /opt/OpenBLAS
 NETLIB_PATH           ?= /usr
