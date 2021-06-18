@@ -1,4 +1,4 @@
-.. README.rst for npy_openblas_demo
+.. README.rst for npy_lapacke_demo
 
 npy_lapacke_demo
 ================
