@@ -55,7 +55,11 @@ typedef struct {
  *     `PyFLoatObject *` in case `ar` is 1D. `NULL` on error + exception set.
  *     If `PyArrayObject *`, `NPY_ARRAY_CARRAY` flags are guaranteed.
  */
-static PyObject *
+// -DEXPOSE_INTERNAL => non-static, so can be accessed in a test runner
+#ifndef EXPOSE_INTERNAL
+static
+#endif
+PyObject *
 npy_vector_matrix_mean(PyArrayObject *ar)
 {
   // data pointer to ar
@@ -120,7 +124,10 @@ npy_vector_matrix_mean(PyArrayObject *ar)
  *     output or shape `(n_samples, n_targets)` for multi-output
  * @returns `0` on success, `-1` on error.
  */
-static int
+#ifndef EXPOSE_INTERNAL
+static
+#endif
+int
 qr_solver(
   LinearRegression *self, PyArrayObject *input_ar, PyArrayObject *output_ar
 )

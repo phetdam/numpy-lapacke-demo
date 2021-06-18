@@ -71,15 +71,11 @@ def _get_ext_modules(env):
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
         )
     # get flag indicating whether to build with access to internal extension
-    # module functions. ENABLE_INTERNAL_TESTING exposes wrappers to methods
-    # private to the module, i.e. not safely castable to PyCFunction and not
-    # part of the module's method table. these functions can then be accessed
-    # from the Python interpreter and unit tested.
-    if (
-        "ENABLE_INTERNAL_TESTING" in env and
-        env["ENABLE_INTERNAL_TESTING"] == "1"
-    ):
-        cblap_macros = [("ENABLE_INTERNAL_TESTING", None)]
+    # module functions. EXPOSE_INTERNAL results in some functions that are
+    # static being declared as non-static, which makes them accessible from a
+    # test runner program that also links against libpython3.x.
+    if ("EXPOSE_INTERNAL" in env and env["EXPOSE_INTERNAL"] == "1"):
+        cblap_macros = [("EXPOSE_INTERNAL", None)]
     else:
         cblap_macros = []
     # CBLAS + LAPACKE implementation include dirs (include_dirs), library dirs
