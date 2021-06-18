@@ -17,6 +17,15 @@ Installation
 From source
 ~~~~~~~~~~~
 
+   Important Note:
+
+   Linking against Intel MKL has proven to be rather difficult. The linker line
+   suggested by the Intel Link Line Advisor leads to fatal errors during
+   runtime since some symbols cannot be found, while using the single dynamic
+   library ``libmkl_rt.so`` appears to work only when the environment variable
+   ``MKL_INTERFACE_LAYER`` is set to ``GNU,ILP64`` or ``GNU,LP64``. Other 
+   values result in segfaults whenever MKL functions are called.
+
 TBD. However, the code will be written so that the C extensions can be built
 with either `Intel MKL`__, `OpenBLAS`__, or standard system CBLAS and LAPACKE
 implementations. But note that unless linked against Intel MKL using ILP64
