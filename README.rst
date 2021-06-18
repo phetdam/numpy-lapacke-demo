@@ -24,7 +24,14 @@ From source
    runtime since some symbols cannot be found, while using the single dynamic
    library ``libmkl_rt.so`` appears to work only when the environment variable
    ``MKL_INTERFACE_LAYER`` is set to ``GNU,ILP64`` or ``GNU,LP64``. Other 
-   values result in segfaults whenever MKL functions are called.
+   values result in segfaults whenever Intel MKL functions are called. For
+   further details on setting the Intel MKL interface and threading layer,
+   see the `dedicated Intel article`__.
+
+   .. __: https://software.intel.com/content/www/us/en/develop/documentation/
+      onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
+      oneapi-math-kernel-library/linking-in-detail/dynamically-selecting-the-
+      interface-and-threading-layer.html
 
 TBD. However, the code will be written so that the C extensions can be built
 with either `Intel MKL`__, `OpenBLAS`__, or standard system CBLAS and LAPACKE
