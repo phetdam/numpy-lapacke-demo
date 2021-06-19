@@ -1,5 +1,11 @@
 # Makefile to build npy_lapacke_demo extensions, build + execute [gtest] tests.
 # link against OpenBLAS by default but also allow Netlib and Intel MKL builds.
+#
+# to specify a particular CBLAS + LAPACKE implementation to link against, set
+# one of USE_OPENBLAS, USE_NETLIB, USE_MKL to 1 when running make. if none are
+# specified, setup.py will warn and act as if USE_OPENBLAS=1 was specified.
+#
+# see setup.py _get_ext_modules for details on defaults.
 
 # package name
 pkg_name = npy_lapacke_demo
@@ -15,16 +21,13 @@ CC = gcc
 CXX = g++
 # set python; on docker specify PYTHON value externally using absolute path
 PYTHON = python3
+# since setup.py won't rebuild if re-run without changing the source, i.e. if
+# you just pass USE_OPENBLAS=1 instead of USE_NETLIB=1, set to 1 to rebuild.
+FORCE_BUILD ?=
 # general build flags to pass to setup.py build, build_ext
 BUILD_FLAGS =
 # flags to pass to setup.py dist, bdist_wheel, sdist
 DIST_FLAGS =
-# flags to indicate which CBLAS + LAPACKE implementation should be used.
-# although setup.py looks in the environment for these, we don't need to
-# export since we require that these are set on command-line or in environment.
-USE_OPENBLAS ?=
-USE_NETLIB ?=
-USE_MKL ?=
 # default MKL interface layer to use with single dynamic library. other options
 # include "LP64", "ILP64", or "GNU,LP64". note that without the GNU prefix
 # calls to Intel MKL functions result is ugly crashes! also, since we want the
@@ -34,21 +37,24 @@ export MKL_INTERFACE_LAYER ?= GNU,ILP64
 # include "INTEL" for Intel threading, "GNU" for libgomp threading, "PGI" for
 # PGI threading (idk what this is), "TBB" for Intel TBB threading. exported.
 export MKL_THREADING_LAYER ?= SEQUENTIAL
-# OpenBLAS, (reference) CBLAS + LAPACKE, MKL install paths. also exported.
+# OpenBLAS, (reference) CBLAS + LAPACKE, MKL install paths. exported to env.
 export OPENBLAS_PATH ?= /opt/OpenBLAS/
 export NETLIB_PATH ?= /usr
 export MKL_PATH ?= /usr
 # whether or not to expose the EXPOSED_* methods in the C extensions. useful
-# for unit testing methods typically private to the modules. on by default, so
-# for setup.py to see it, we have to export it.
+# for unit testing methods typically private to the modules. on by default.
 export EXPOSE_INTERNAL ?= 1
 # arguments to pass to pytest. default here shows skipped, xfailed, xpassed,
 # and passed tests that print output in the brief summary report.
 PYTEST_ARGS ?= -rsxXP
 
-# phony targets. always rebuild since we might want to pass different flags to
-# make build but without changing any of the source code.
-.PHONY: build check clean dummy
+# to force setup.py to rebuild, add clean as a target, which is a phony target
+ifeq ($(FORCE_BUILD), 1)
+py_deps += clean
+endif
+
+# phony targets. note sdist just copies files.
+.PHONY: check clean dummy sdist
 
 # triggered if no target is provided
 dummy:
@@ -61,7 +67,6 @@ clean:
 	@rm -vrf dist
 
 # build extension module locally in ./build from source files with setup.py
-# triggers when any of the files that are required are touched/modified.
 build: $(ext_deps) $(py_deps)
 	$(PYTHON) setup.py build $(BUILD_FLAGS)
 
@@ -74,15 +79,15 @@ inplace: build
 check: inplace
 	pytest $(PYTEST_ARGS)
 
-# make source and wheel, linking to OpenBLAS. note we explicitly depend on
-# ext_deps, py_deps so we don't have to manually specify USE_OPENBLAS=1
-dist: $(ext_deps) $(py_deps)
-	USE_OPENBLAS=1 $(PYTHON) setup.py sdist bdist_wheel $(DIST_FLAGS)
+# make source and wheel, no access to EXPOSED_* functions.
+dist: build
+	EXPOSE_INTERNAL= $(PYTHON) setup.py sdist bdist_wheel $(DIST_FLAGS)
 
-# make just wheel, linking to OpenBLAS. use of explicit deps same as dist.
+# make wheel, no access to EXPOSED_* functions.
 bdist_wheel: $(ext_deps) $(py_deps)
-	USE_OPENBLAS=1 $(PYTHON) setup.py bdist_wheel $(DIST_FLAGS)
+	EXPOSE_INTERNAL= $(PYTHON) setup.py bdist_wheel $(DIST_FLAGS)
 
-# make just sdist
-sdist: $(ext_deps) $(py_deps)
-	$(PYTHON) setup.py sdist $(DIST_FLAGS)
+# make just sdist. ok to not set EXPOSED_*; only copies files. set
+# USE_OPENBLAS=1 to suppress warnings (doesn't have any effect).
+sdist:
+	USE_OPENBLAS=1 $(PYTHON) setup.py sdist $(DIST_FLAGS)

@@ -3,6 +3,7 @@
 import numpy as np
 import os
 from setuptools import Extension, find_packages, setup
+import warnings
 
 from npy_lapacke_demo import __package__, __version__
 
@@ -20,6 +21,7 @@ def _get_ext_modules(env):
     """Returns a list of setuptools.Extension giving C extensions to build.
 
     Reads environment variables from mapping env, typically os.environ.
+    UserWarnings raised and defaults are used if required variables are unset.
 
     Parameters
     ----------
@@ -37,18 +39,23 @@ def _get_ext_modules(env):
         Raised whenever environment configurations are incorrect/missing.
     """
     # get OpenBLAS, reference (Netlib) CBLAS/LAPACKE, MKL install paths. if
-    # not specified in the environment, just use defaults.
+    # not specified in the environment, warn and use defaults.
     if "OPENBLAS_PATH" in env:
         OPENBLAS_PATH = env["OPENBLAS_PATH"]
     else:
+        warnings.warn(
+            "OPENBLAS_PATH not set. defaulting to OPENBLAS_PATH=/opt/OpenBLAS"
+        )
         OPENBLAS_PATH = "/opt/OpenBLAS"
     if "NETLIB_PATH" in env:
         NETLIB_PATH = env["NETLIB_PATH"]
     else:
+        warnings.warn("NETLIB_PATH not set. defaulting to NETLIB_PATH=/usr")
         NETLIB_PATH = "/usr"
     if "MKL_PATH" in env:
         MKL_PATH = env["MKL_PATH"]
     else:
+        warnings.warn("MKL_PATH not set. defaulting to MKL_PATH=/usr")
         MKL_PATH = "/usr"
     # get flags to indicate which CBLAS + LAPACKE implementations to use
     if "USE_OPENBLAS" in env and env["USE_OPENBLAS"] == "1":
@@ -63,10 +70,29 @@ def _get_ext_modules(env):
         USE_MKL = True
     else:
         USE_MKL = False
-    # if all are False, error
+    # if using MKL, check for unset MKL_INTERFACE_LAYER, MKL_THREADING_LAYER,
+    # which control the mkl_rt interface. if unset, use default values
+    if USE_MKL:
+        if "MKL_INTERFACE_LAYER" not in env:
+            warnings.warn(
+                "MKL_INTERFACE_LAYER not set. setting "
+                "MKL_INTERFACE_LAYER=GNU,ILP64"
+            )
+            env["MKL_INTERFACE_LAYER"] = "GNU,ILP64"
+        if "MKL_THREADING_LAYER" not in env:
+            warnings.warn(
+                "MKL_THREADING_LAYER not set. setting "
+                "MKL_THREADING_LAYER=SEQUENTIAL"
+            )
+            env["MKL_THREADING_LAYER"] = "SEQUENTIAL"
+    # if all are False, warn and default to OpenBLAS
     if not USE_OPENBLAS and not USE_NETLIB and not USE_MKL:
-        raise RuntimeError("none of USE_OPENBLAS, USE_NETLIB, USE_MKL set")
-    # if more than 1 is True, also error (numpy already imported)
+        warnings.warn(
+            "neither of USE_OPENBLAS, USE_NETLIB, USE_MKL set to 1. "
+            "defaulting to USE_OPENBLAS=1"
+        )
+        USE_OPENBLAS = True
+    # if more than one is True, error (numpy function convenient here)
     if np.sum((USE_OPENBLAS, USE_NETLIB, USE_MKL)) > 1:
         raise RuntimeError(
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
@@ -77,7 +103,13 @@ def _get_ext_modules(env):
     # test runner program that also links against libpython3.x.
     if "EXPOSE_INTERNAL" in env and env["EXPOSE_INTERNAL"] == "1":
         cblap_macros = [("EXPOSE_INTERNAL", None)]
+    # warn since -DEXPOSE_INTERNAL should always used, except in production
     else:
+        warnings.warn(
+            "EXPOSE_INTERNAL not set => production build, i.e.\n"
+            "+ no EXPOSED_* functions available in extensions\n"
+            "+ unit tests for EXPOSED_* functions will be disabled"
+        )
         cblap_macros = []
     # CBLAS + LAPACKE implementation include dirs (include_dirs), library dirs
     # (library_dirs), runtime libary dirs (runtime_library_dirs), names of

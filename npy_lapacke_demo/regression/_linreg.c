@@ -956,27 +956,10 @@ static PyTypeObject LinearRegression_type = {
   .tp_methods = LinearRegression_methods
 };
 
-/*
-static PyObject *
-test_array_flags(PyObject *self, PyObject *args)
-{
-  npy_intp dims[] = {4, 2};
-  PyArrayObject *ar = (PyArrayObject *) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
-  printf("flags for ar: %x\n", PyArray_FLAGS(ar));
-  printf("NPY_ARRAY_CARRAY: %x\n", NPY_ARRAY_CARRAY);
-  printf("PyArray_ISCARRAY? %u\n", PyArray_ISCARRAY(ar));
-  printf("PyArray_ISONESEGMENT? %d\n", PyArray_ISONESEGMENT(ar));
-#ifdef OPENBLAS_CONFIG_H
-  printf("sizeof(blasint): %lu\n", sizeof(blasint));
-#endif OPENBLAS_CONFIG_H
-  return (PyObject *) ar;
-}
-*/
-
 // _linreg methods, possibly including EXTERNAL_* wrappers
 static PyMethodDef _linreg_methods[] = {
 // if EXPOSE_INTERNAL is defined, we make the EXPOSED_* methods accessible.
-// again, defindd(__INTELLISENSE__) lets VS Code Intellisense work here
+// again, defined(__INTELLISENSE__) lets VS Code Intellisense work here
 #if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
   {
     "EXPOSED_npy_vector_matrix_mean",
