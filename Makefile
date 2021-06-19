@@ -41,29 +41,16 @@ MKL_THREADING_LAYER   ?= SEQUENTIAL
 OPENBLAS_PATH         ?= /opt/OpenBLAS
 NETLIB_PATH           ?= /usr
 MKL_PATH              ?= /usr
-# python compiler and linker flags for use when linking debug python into
-# external C/C++ code; can be externally specified. gcc/g++ requires -fPIE.
-PY_CFLAGS             ?= -fPIE $(shell python3d-config --cflags)
-# ubuntu needs --embed, else -lpythonx.yd is omitted by --ldflags, which is a
-# linker error. libpython3.8d is in /usr/lib/x86_64-linux-gnu for me.
-PY_LDFLAGS            ?= $(shell python3d-config --embed --ldflags)
-# google test installation path. libraries are in lib, includes in include.
-GTEST_PATH             = /usr/local
-# include and linker line for google test
-gtest_include_line     = -I$(GTEST_PATH)/include
-gtest_link_line        = -L$(GTEST_PATH)/lib \
-	-L$(GTEST_PATH)/lib/x86_64-linux-gnu -Wl,-rpath,$(GTEST_PATH)/lib \
-	-Wl,-rpath,$(GTEST_PATH)lib/x86_64-linux-gnu -lgtest -lgtest_main
-# g++ compile flags for gtest runner
-GTEST_CFLAGS   = -I$(GTEST_PATH)/include $(PY_CFLAGS)
-# g++ linker flags for compiling gtest runner
-GTEST_LDFLAGS  = -L$(GTEST_PATH)/lib -Wl,-rpath,$(GTEST_PATH)/lib \
-	-lgtest -lgtest_main $(PY_LDFLAGS)
-# flags to pass to the gtest test runner
-RUNNER_FLAGS   =
+# whether or not to expose the EXPOSED_* methods in the C extensions. useful
+# for unit testing methods typically private to the modules.
+EXPOSE_INTERNAL       ?=
+# arguments to pass to pytest. default here shows skipped, xfailed, xpassed,
+# and passed tests that print output in the brief summary report.
+PYTEST_ARGS           ?= -rsxXP
 
-# phony targets
-.PHONY: check clean dummy
+# phony targets. always rebuild since we might want to pass different flags to
+# make build but without changing any of the source code.
+.PHONY: build check clean dummy
 
 # triggered if no target is provided
 dummy:
@@ -82,13 +69,12 @@ build: $(ext_deps) $(py_deps)
 
 # build extension modules in-place with build_ext --inplace. in-place means
 # the shared objects will be in the same directory as the respective sources.
-inplace: $(ext_deps)
+inplace: build
 	$(PYTHON) setup.py build_ext --inplace $(BUILD_FLAGS)
 
-# build test runner and run gtest unit tests. show flags passed to g++
-check: $(gtest_deps) inplace
-	$(CXX) $(GTEST_CFLAGS) -o runner $(gtest_deps) $(GTEST_LDFLAGS)
-	@./runner $(RUNNER_FLAGS)
+# just run pytest with arguments given by PYTEST_ARGS
+check: inplace
+	pytest $(PYTEST_ARGS)
 
 # make source and wheel, linking to OpenBLAS
 dist: build
