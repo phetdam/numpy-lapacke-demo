@@ -21,6 +21,10 @@
 #include "npy_lapacke_demo/cblas.h"
 #include "npy_lapacke_demo/lapacke.h"
 
+// default message to include in all EXPOSED_* C function docstrings
+#define EXPOSE_INTERNAL_NOTICE \
+  "This function should NOT be included in production code."
+
 // struct representing our linear regression estimator
 typedef struct {
   PyObject_HEAD
@@ -50,16 +54,12 @@ typedef struct {
  * since this function is specialized for 2D arrays it's faster to do manually.
  * 
  * @param ar `PyArrayObject *` ndarray to operate on. Must have type
- *     `NPY_DOUBLE`, flags `NPY_ARRAY_CARRAY` (row-major ordering).
+ *     `NPY_DOUBLE`, flags `NPY_ARRAY_CARRAY` (row-major ordering), nonempty.
  * @returns `PyObject *`, either 1D `PyArrayObject *` in case `ar` is 2D or
  *     `PyFLoatObject *` in case `ar` is 1D. `NULL` on error + exception set.
  *     If `PyArrayObject *`, `NPY_ARRAY_CARRAY` flags are guaranteed.
  */
-// -DEXPOSE_INTERNAL => non-static, so can be accessed in a test runner
-#ifndef EXPOSE_INTERNAL
-static
-#endif
-PyObject *
+static PyObject *
 npy_vector_matrix_mean(PyArrayObject *ar)
 {
   // data pointer to ar
@@ -94,7 +94,7 @@ npy_vector_matrix_mean(PyArrayObject *ar)
     for (npy_intp j = 0; j < n_cols; j++) {
       // compute column mean
       double mean_j = 0;
-      for (npy_intp i = 0; i < n_cols; i++) {
+      for (npy_intp i = 0; i < n_rows; i++) {
         mean_j += data[i * n_cols + j];
       }
       mean_data[j] = mean_j / n_rows;
@@ -110,6 +110,72 @@ npy_vector_matrix_mean(PyArrayObject *ar)
 }
 
 /**
+ * wrapper code for npy_vector_matrix_mean that lets us test it from Python.
+ * note that __INTELLISENSE__ is always defined in VS Code, so including the
+ * defined(__INTELLISENSE__) lets Intellisense work on the code in VS Code.
+ */
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+// docstring for npy_vector_matrix_mean
+PyDoc_STRVAR(
+  EXPOSED_npy_vector_matrix_mean_doc,
+  "EXPOSED_npy_vector_matrix_mean(ar)"
+  "\n--\n\n"
+  EXPOSE_INTERNAL_NOTICE
+  "\n\n"
+  "Python-accessible wrapper for internal function `npy_vector_matrix_mean`."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "ar : numpy.ndarray\n"
+  "    Input array shape ``(n_rows,)`` or ``(n_rows, n_cols)``,\n"
+  "    ``NPY_DOUBLE`` type. For safety, error checking is done. Exception\n"
+  "    will be raised if ``ar`` is empty or of incorrect shape."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float or numpy.ndarray\n"
+  "    If ``ar`` has shape ``(n_rows,)``, a Python float is returned (flat\n"
+  "    mean of the elements, while if ``ar`` has shape ``(n_rows, n_cols)``,\n"
+  "    a :class:`numpy.ndarray` shape ``(n_cols,)`` is returned, giving the\n"
+  "    mean across the rows, i.e. like ``ar.mean(axis=0)``."
+);
+/**
+ * Python-accessible wrapper for `npy_vector_matrix_mean`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param arg `PyObject *` single argument. Method uses `METH_O` flag in its
+ *     `PyMethodDef` in `_linreg_methods`, so no `PyArg_ParseTuple` needed.
+ * @returns Either `PyArrayObject *` flat vector if `arg` can be converted to
+ *     2D `PyArrayObject *` with type `NPY_DOUBLE` or `PyFloatObject *` if
+ *     `arg` can be converted to 1D `PyArrayObject *`.
+ */
+static PyObject *
+EXPOSED_npy_vector_matrix_mean(PyObject *self, PyObject *arg)
+{
+  // only one argument is expected, PyArrayObject *, so we directly convert
+  PyArrayObject *ar;
+  ar = (PyArrayObject *) PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_CARRAY);
+  if (ar == NULL) {
+    return NULL;
+  }
+  // cannot pass empty ndarray to npy_vector_matrix_mean or it'll crash
+  if (PyArray_SIZE(ar) == 0) {
+    PyErr_SetString(PyExc_ValueError, "ar must not be empty");
+    goto except;
+  }
+  // otherwise, we can pass this to npy_vector_matrix_mean
+  PyObject *res = npy_vector_matrix_mean(ar);
+  // if res is NULL, we can propagate this. have to Py_DECREF ar anyways
+  Py_DECREF(ar);
+  return res;
+// clean up ar on exceptions
+except:
+  Py_DECREF(ar);
+  return NULL;
+}
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
+
+/**
  * QR solver for the `LinearRegression` class.
  * 
  * Do NOT call without proper argument checking. Copies input matrix.
@@ -118,16 +184,17 @@ npy_vector_matrix_mean(PyArrayObject *ar)
  * will point to `PyArrayObject *` if multi-target else a `PyFloatObject *`
  * for single-target, and `singular_` will be `Py_None`. `fitted` set to `1`.
  * 
+ * Note we don't need an `EXPOSED_*` method for `qr_solver` since we can
+ * verify its performance by fitting a `LinearRegression` instance with
+ * `solver="qr"`. We should not expect `qr_solver` to result in  errors.
+ * 
  * @param self `LinearRegression *` instance
  * @param input_ar `PyArrayObject *` input, shape `(n_samples, n_features)`
  * @param output_ar `PyArrayObject *` response, shape `(n_samples,)` for single
  *     output or shape `(n_samples, n_targets)` for multi-output
  * @returns `0` on success, `-1` on error.
  */
-#ifndef EXPOSE_INTERNAL
-static
-#endif
-int
+static int
 qr_solver(
   LinearRegression *self,
   PyArrayObject *input_ar, PyArrayObject *output_ar
@@ -163,7 +230,8 @@ qr_solver(
   if (input_mean == NULL) {
     goto except_output_copy_ar;
   }
-  PyObject *output_mean = npy_vector_matrix_mean(output_ar);
+  PyObject *output_mean;
+  output_mean = npy_vector_matrix_mean(output_ar);
   if (output_mean == NULL) {
     goto except_input_mean;
   }
@@ -179,9 +247,8 @@ qr_solver(
   }
   // temp to hold information on the pivoted columns of input_cent_data.
   // we use PyMem_RawMalloc so the interpreter can track all the memory used.
-  lapack_int *pivot_idx = (lapack_int *) PyMem_RawMalloc(
-    n_features * sizeof(lapack_int)
-  );
+  lapack_int *pivot_idx;
+  pivot_idx = (lapack_int *) PyMem_RawMalloc(n_features * sizeof(lapack_int));
   if (pivot_idx == NULL ) {
     goto except_output_mean;
   }
@@ -904,14 +971,23 @@ test_array_flags(PyObject *self, PyObject *args)
 #endif OPENBLAS_CONFIG_H
   return (PyObject *) ar;
 }
+*/
 
-// methods of the LinearRegression type
+// _linreg methods, possibly including EXTERNAL_* wrappers
 static PyMethodDef _linreg_methods[] = {
-  {"test_array_flags", (PyCFunction) test_array_flags, METH_NOARGS, NULL},
+// if EXPOSE_INTERNAL is defined, we make the EXPOSED_* methods accessible.
+// again, defindd(__INTELLISENSE__) lets VS Code Intellisense work here
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+  {
+    "EXPOSED_npy_vector_matrix_mean",
+    (PyCFunction) EXPOSED_npy_vector_matrix_mean,
+    METH_O,
+    EXPOSED_npy_vector_matrix_mean_doc
+  },
+#endif /* EXPOSE_INTERNAL */
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
 };
-*/
 
 // _linreg module docstring
 PyDoc_STRVAR(
@@ -927,8 +1003,8 @@ static PyModuleDef _linreg_module = {
   // name, docstring, size = -1 to disable subinterpreter support
   .m_name = "_linreg",
   .m_doc = _linreg_doc,
-  .m_size = -1/*,
-  .m_methods = _linreg_methods*/
+  .m_size = -1,
+  .m_methods = _linreg_methods
 };
 
 // module initialization function
