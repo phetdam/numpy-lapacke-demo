@@ -1,4 +1,4 @@
-__doc__ = """__init__.py for the regression models subpackage.
+__doc__ = """Regression models subpackage for npy_lapacke_demo.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
