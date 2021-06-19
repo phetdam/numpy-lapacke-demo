@@ -142,7 +142,7 @@ def _setup():
         packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1"],
-        extras_require={"tests": ["scikit-learn>=0.23.2"]},
+        extras_require={"tests": ["pytest>=6.0.1", "scikit-learn>=0.23.2"]},
         ext_package=__package__,
         ext_modules=_get_ext_modules(os.environ)
     )
