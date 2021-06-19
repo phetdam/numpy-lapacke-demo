@@ -36,7 +36,8 @@ def _get_ext_modules(env):
     RuntimeError
         Raised whenever environment configurations are incorrect/missing.
     """
-    # get OpenBLAS, reference (Netlib) CBLAS/LAPACKE, MKL install paths
+    # get OpenBLAS, reference (Netlib) CBLAS/LAPACKE, MKL install paths. if
+    # not specified in the environment, just use defaults.
     if "OPENBLAS_PATH" in env:
         OPENBLAS_PATH = env["OPENBLAS_PATH"]
     else:
@@ -74,7 +75,7 @@ def _get_ext_modules(env):
     # module functions. EXPOSE_INTERNAL results in some functions that are
     # static being declared as non-static, which makes them accessible from a
     # test runner program that also links against libpython3.x.
-    if ("EXPOSE_INTERNAL" in env and env["EXPOSE_INTERNAL"] == "1"):
+    if "EXPOSE_INTERNAL" in env and env["EXPOSE_INTERNAL"] == "1":
         cblap_macros = [("EXPOSE_INTERNAL", None)]
     else:
         cblap_macros = []
