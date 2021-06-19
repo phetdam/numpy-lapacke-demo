@@ -2,41 +2,40 @@
 # optional dynamic linking to GSL if desired. MKL cannot be linked with GSL,
 
 # C compiler and flags
-CC                     = gcc
-CFLAGS                 = -Wall -g
+CC = gcc
+CFLAGS = -Wall -g
 # set to 1 to include GSL headers and link GSL
-GSL_INCLUDE           ?=
+GSL_INCLUDE ?=
 # location of GSL install path. ignored if GSL_INCLUDE is 0
-GSL_PATH              ?= /usr/local
+GSL_PATH ?= /usr/local
 # location of OpenBLAS, LAPACKE, MKL install paths
-OPENBLAS_PATH         ?= /opt/OpenBLAS
-LAPACKE_PATH          ?= /usr
-MKL_PATH              ?= /usr
+OPENBLAS_PATH ?= /opt/OpenBLAS
+LAPACKE_PATH ?= /usr
+MKL_PATH ?= /usr
 # name of build targets linking OpenBLAS, LAPACKE, MKL respectively
-tgt_openblas           = demo_openblas
-tgt_lapacke            = demo_lapacke
-tgt_mkl                = demo_mkl
+tgt_openblas = demo_openblas
+tgt_lapacke = demo_lapacke
+tgt_mkl = demo_mkl
 # include lines for GSL, LAPACKE, OpenBLAS, MKL
-gsl_include_line       = -I$(GSL_PATH)/include
-lapacke_include_line   = -I$(LAPACKE_PATH)/include \
+gsl_include_line = -I$(GSL_PATH)/include
+lapacke_include_line = -I$(LAPACKE_PATH)/include \
 	-I$(LAPACKE_PATH)/LAPACKE/include
-openblas_include_line  = -I$(OPENBLAS_PATH)/include
-mkl_include_line       = -I$(MKL_PATH)/include -I$(MKL_PATH)/include/mkl
+openblas_include_line = -I$(OPENBLAS_PATH)/include
+mkl_include_line = -I$(MKL_PATH)/include -I$(MKL_PATH)/include/mkl
 # linker lines for GSL, LAPACKE, OpenBLAS, MKL. -lm may not be needed in
 # gsl_link_line for some systems. Intel MKL link line courtesy of the Intel
 # Math Kernel Library Link Line Advisor. requires libpthread, targets x86-64.
-gsl_link_line          = -L$(GSL_PATH)/lib \
+gsl_link_line = -L$(GSL_PATH)/lib \
 	-L$(GSL_PATH)/lib/x86_64-linux-gnu -Wl,-rpath,$(GSL_PATH)/lib \
 	-Wl,-rpath,$(GSL_PATH)/lib/x86_64-linux-gnu -lgsl -lm
-lapacke_link_line      = -L$(LAPACKE_PATH) -L$(LAPACKE_PATH)/lib \
-	-L$(LAPACKE_PATH)/lib/x86_64-linux-gnu -Wl,-rpath,$(LAPACKE_PATH) \
-	-Wl,-rpath,$(LAPACKE_PATH)/lib \
+lapacke_link_line = -L$(LAPACKE_PATH) -L$(LAPACKE_PATH)/lib \
+	-L$(LAPACKE_PATH)/lib/x86_64-linux-gnu \
+	-Wl,-rpath,$(LAPACKE_PATH) -Wl,-rpath,$(LAPACKE_PATH)/lib \
 	-Wl,-rpath,$(LAPACKE_PATH)/lib/x86_64-linux-gnu -llapacke
-openblas_link_line     = -L$(OPENBLAS_PATH)/lib \
+openblas_link_line = -L$(OPENBLAS_PATH)/lib \
 	-Wl,-rpath,$(OPENBLAS_PATH)/lib -lopenblas
-mkl_link_line          = -L$(MKL_PATH)/lib/x86_64-linux-gnu \
-	-L$(MKL_PATH)/lib/intel64 -lmkl_intel_lp64 \
-	-lmkl_sequential -lmkl_core -lpthread -lm -ldl
+mkl_link_line = -L$(MKL_PATH)/lib/x86_64-linux-gnu -L$(MKL_PATH)/lib/intel64 \
+	-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 
 # phony targets
 .PHONY: dummy
@@ -66,8 +65,8 @@ ifeq ($(GSL_INCLUDE), 1)
 	$(gsl_link_line) $(lapacke_link_line)
 	
 else
-	$(CC) $(CFLAGS) -DLAPACKE_INCLUDE $(lapacke_include_line) -o lapacke_demo \
-	lapacke_demo.c $(lapacke_link_line)
+	$(CC) $(CFLAGS) -DLAPACKE_INCLUDE $(lapacke_include_line) \
+	-o lapacke_demo lapacke_demo.c $(lapacke_link_line)
 endif
 
 # build using Intel MKL. note that we add multiple include and lib directories
@@ -77,6 +76,6 @@ $(tgt_mkl): lapacke_demo.c
 ifeq ($(GSL_INCLUDE), 1)
 	$(error cannot pass -DGSL_INCLUDE with -DMKL_INCLUDE)
 else
-	$(CC) $(CFLAGS) -DMKL_INCLUDE $(mkl_include_line) -m64 -o lapacke_demo \
-	lapacke_demo.c $(mkl_link_line)
+	$(CC) $(CFLAGS) -DMKL_INCLUDE $(mkl_include_line) -m64 \
+	-o lapacke_demo lapacke_demo.c $(mkl_link_line)
 endif
