@@ -5,5 +5,6 @@
 **/__pycache__
 /.vscode
 **/*.so
-# ignore executable built from lapacke_demo/lapacke_demo.c
+# ignore gtest stuff executable built from lapacke_demo/lapacke_demo.c
+/gtest/*
 /lapacke_demo/lapacke_demo
