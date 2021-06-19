@@ -139,7 +139,7 @@ def _setup():
         author_email="djh458@stern.nyu.edu",
         license="MIT",
         url="https://github.com/phetdam/scipy_fastmin",
-        packages=find_packages(exclude=("*.tests",)),
+        packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1"],
         extras_require={"tests": ["scikit-learn>=0.23.2"]},
