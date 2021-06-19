@@ -128,7 +128,7 @@ def _setup():
     # get long description from README.rst
     with open("README.rst") as rf:
         long_desc = rf.read().strip()
-    # run setuptools
+    # run setuptools setup
     setup(
         name=_PACKAGE_NAME,
         version=__version__,
@@ -139,9 +139,10 @@ def _setup():
         author_email="djh458@stern.nyu.edu",
         license="MIT",
         url="https://github.com/phetdam/scipy_fastmin",
-        packages=find_packages(),
+        packages=find_packages(exclude=("*.tests",)),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1"],
+        extras_require={"tests": ["scikit-learn>=0.23.2"]},
         ext_package=__package__,
         ext_modules=_get_ext_modules(os.environ)
     )

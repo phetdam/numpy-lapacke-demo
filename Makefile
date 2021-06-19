@@ -76,12 +76,13 @@ inplace: build
 check: inplace
 	pytest $(PYTEST_ARGS)
 
-# make source and wheel, linking to OpenBLAS
-dist: build
+# make source and wheel, linking to OpenBLAS. note we explicitly depend on
+# ext_deps, py_deps so we don't have to manually specify USE_OPENBLAS=1
+dist: $(ext_deps) $(py_deps)
 	USE_OPENBLAS=1 $(PYTHON) setup.py sdist bdist_wheel $(DIST_FLAGS)
 
-# make just wheel, linking to OpenBLAS
-bdist_wheel: build
+# make just wheel, linking to OpenBLAS. use of explicit deps same as dist.
+bdist_wheel: $(ext_deps) $(py_deps)
 	USE_OPENBLAS=1 $(PYTHON) setup.py bdist_wheel $(DIST_FLAGS)
 
 # make just sdist
