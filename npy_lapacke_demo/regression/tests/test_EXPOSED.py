@@ -12,6 +12,10 @@ import pytest
 
 from .. import _linreg
 
+# skip all module tests if _linreg not built with -DEXTERNAL_EXPOSE. pytestmark
+# applied mark to all tests in module, skip_internal_exposed a custom mark.
+pytestmark = pytest.mark.skip_internal_exposed(_linreg)
+
 
 def test_npy_vector_matrix_mean(global_seed):
     """Test the internal npy_vector_matrix_mean function on model inputs.
