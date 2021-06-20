@@ -6,6 +6,22 @@ __doc__ = """pytest test fixtures for regression.tests subpackage.
 import pytest
 from sklearn.datasets import make_regression
 
+# pylint: disable=no-name-in-module
+from .._linreg import LinearRegression
+
+
+@pytest.fixture
+def lr_default():
+    """LinearRegression instance with default parameters.
+
+    Returns
+    -------
+    LinearRegression
+        fit_intercept=False, solver="svd" are the defaults.
+    """
+    return LinearRegression()
+
+
 @pytest.fixture(scope="session")
 def lr_single(global_seed):
     """Toy single-output linear regression problem.

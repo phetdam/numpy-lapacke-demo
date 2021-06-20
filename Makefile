@@ -49,7 +49,7 @@ export EXPOSE_INTERNAL ?= 1
 PYTEST_ARGS ?= -rsxXP
 
 # to force setup.py to rebuild, add clean as a target, which is a phony target
-ifeq ($(FORCE_BUILD), 1)
+ifeq ($(REBUILD), 1)
 py_deps += clean
 endif
 

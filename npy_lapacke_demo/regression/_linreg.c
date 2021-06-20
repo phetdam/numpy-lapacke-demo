@@ -412,7 +412,7 @@ LinearRegression_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
   // the members with T_OBJECT_EX, access when NULL yields AttributeError
   self->coef_ = self->intercept_ = self->singular_ = NULL;
   // set default initializations for fit_intercept, solver
-  self->fit_intercept = 0;
+  self->fit_intercept = 1;
   self->solver = "svd";
   // fitted must start at zero and we can set rank_ to whatever we want
   self->fitted = self->rank_ = 0;

@@ -35,7 +35,12 @@ def _skip_internal_exposed(request):
     -------
     None
     """
-    # get the module passed to skip_internal_exposed
+    # get the "closest" marker to skip_internal_exposed
+    marker = request.node.get_closest_marker("skip_internal_exposed")
+    # if test not decorated with skip_internal_exposed, marker None. return
+    if marker is None:
+        return
+    # else test decorated. get the module passed to skip_internal_exposed
     module = request.node.get_closest_marker("skip_internal_exposed").args[0]
     # get name and members of the module
     name = module.__name__
