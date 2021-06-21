@@ -116,3 +116,26 @@ def test_fit_sanity(lr_default, lr_single):
     # need tall and thin matrix (note X has 3 columns)
     with pytest.raises(ValueError, match="n_samples >= n_features required"):
         lr_default.fit(X[:(n_features - 1), :], y[:(n_features - 1)])
+
+
+def test_qr_solver_single(lr_single):
+    """Test QR solver on single-response toy problem.
+
+    The intercept is not checked since intercept computation is separate.
+
+    .. note::
+
+       We don't use the scikit-learn implementation as a benchmark since it
+       uses dgelsd, i.e. SVD with a divide-and-conquer method, which is
+       (surprisingly) less accurate on this particular problem.
+
+    Parameters
+    ----------
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input + output data, coefficients, from lr_single
+    X, y, coef_, _ = lr_single
+    # fit LinearRegression and check that coef_ is close to actual
+    lr = LinearRegression(solver="qr").fit(X, y)
+    np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)

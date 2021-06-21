@@ -249,7 +249,7 @@ qr_solver(
   // we use PyMem_RawMalloc so the interpreter can track all the memory used.
   lapack_int *pivot_idx;
   pivot_idx = (lapack_int *) PyMem_RawMalloc(n_features * sizeof(lapack_int));
-  if (pivot_idx == NULL ) {
+  if (pivot_idx == NULL) {
     goto except_output_mean;
   }
 /**
@@ -338,13 +338,8 @@ qr_solver(
   // self->rank_ already been set. singular_ always None when using QR solver
   Py_INCREF(Py_None);
   self->singular_ = Py_None;
-  // coef_, intercept_, rank_, singular_ have been set. clean up time!
-// if using Intel MKL, use mkl_free with mkl_malloc, else use normal free
-#ifdef MKL_INCLUDE
-  mkl_free((void *) pivot_idx);
-#else
-  free((void *) pivot_idx);
-#endif /* MKL_INCLUDE */
+  // coef_, intercept_, rank_, singular_ have been set. first free pivot_idx
+  PyMem_RawFree((void *) pivot_idx);
   // clean up PyObject * previously allocated (except coef_ar)
   Py_DECREF(output_mean);
   Py_DECREF(input_mean);
@@ -357,11 +352,7 @@ qr_solver(
 except_coef_ar:
   Py_DECREF(coef_ar);
 except_pivot_idx:
-#ifdef MKL_INCLUDE
-  mkl_free(pivot_idx);
-#else
-  free((void *) pivot_idx);
-#endif /* MKL_INCLUDE */
+  PyMem_RawFree((void *) pivot_idx);
 except_output_mean:
   Py_DECREF(output_mean);
 except_input_mean:
