@@ -4,6 +4,7 @@ __doc__ = """Tests for the LinearRegression class provided by _linreg.
 """
 
 from functools import partial
+import numpy as np
 import pytest
 
 # pylint: disable=no-name-in-module
@@ -41,7 +42,7 @@ def test_members(lr_default):
     lr_default : LinearRegression
         pytest fixture. See local conftest.py.
     """
-    # functools.partial facatory for pytest context manager
+    # functools.partial factory for pytest exception context manager
     mgr_gen = partial(pytest.raises, AttributeError, match="readonly")
     # no type checking done since attributes are read-only.
     with mgr_gen():
@@ -58,7 +59,7 @@ def test_unfitted_getset(lr_default):
     lr_default : LinearRegression
         pytest fixture. See local conftest.py.
     """
-    # functools.partial facatory for pytest context manager
+    # functools.partial factory for pytest exception context manager
     mgr_gen = partial(pytest.raises, AttributeError, match="after fitting")
     # need each access in its own block
     with mgr_gen():
@@ -69,3 +70,49 @@ def test_unfitted_getset(lr_default):
         lr_default.rank_
     with mgr_gen():
         lr_default.singular_
+
+
+def test_fit_sanity(lr_default, lr_single):
+    """Test sanity of LinearRegression fit method.
+
+    Parameters
+    ----------
+    lr_default : LinearRegression
+        pytest fixture. See local conftest.py.
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input and output data from lr_single
+    X, y, _, _ = lr_single
+    # PRNG used to generator some random values. actual values don't matter so
+    # we don't have to seed this particular Generator
+    rng = np.random.default_rng()
+    # number of features (columns of X)
+    _, n_features = X.shape
+    # input_ar and output_ar must not be empty
+    with pytest.raises(ValueError, match="X must be nonempty"):
+        lr_default.fit([], y)
+    with pytest.raises(ValueError, match="y must be nonempty"):
+        lr_default.fit(X, [])
+    # functools.partial factory for pytest context manager
+    mgr_gen = partial(pytest.raises, ValueError, match="X must have shape")
+    # shape of X must be appropriate. try 0, 1, > 2 dims
+    with mgr_gen():
+        lr_default.fit(2, y)
+    with mgr_gen():
+        lr_default.fit(X[:, 0], y)
+    with mgr_gen():
+        lr_default.fit(rng.normal(size=(8, 8, 8)), y)
+    # update factory so for checking shape of y (different matching message)
+    mgr_gen = partial(pytest.raises, ValueError, match="y must have shape")
+    # shape of y must be appropriate. try 0, > 2 dims
+    with mgr_gen():
+        lr_default.fit(X, 2)
+    with mgr_gen():
+        lr_default.fit(X, rng.normal(size=(8, 8, 8)))
+    # number of rows and columns of X, y must match
+    with pytest.raises(ValueError, match="number of rows of X, y must match"):
+        lr_default.fit(X[:-1, :], y)
+    # need tall and thin matrix (note X has 3 columns)
+    with pytest.raises(ValueError, match="n_samples >= n_features required"):
+        lr_default.fit(X[:(n_features - 1), :], y[:(n_features - 1)])

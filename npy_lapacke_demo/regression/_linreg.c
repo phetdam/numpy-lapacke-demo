@@ -626,7 +626,7 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
   // get number of samples, number of features
   npy_intp n_samples, n_features;
   n_samples = PyArray_DIMS(input_ar)[0];
-  n_features = PyArray_DIMS(output_ar)[1];
+  n_features = PyArray_DIMS(input_ar)[1];
   // check that y has correct number of samples
   if (PyArray_DIMS(output_ar)[0] != n_samples) {
     PyErr_SetString(PyExc_ValueError, "number of rows of X, y must match");
