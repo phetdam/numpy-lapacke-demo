@@ -42,3 +42,43 @@ def test_npy_vector_matrix_mean(global_seed):
     # check that ValueError is raised when passed higher-dimension ndarray
     with pytest.raises(ValueError, match="ar must be 1D or 2D only"):
         _linreg.EXPOSED_npy_vector_matrix_mean(rng.random(size=(3, 2, 5)))
+
+
+def test_compute_intercept_single(lr_single):
+    """Test the internal compute_intercept function on single-response data.
+
+    Parameters
+    ----------
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get X, y, coefficients, intercept
+    X, y, coef_, intercept_ = lr_single
+    # compute row-wise (axis=0) means for X, y
+    X_mean = X.mean(axis=0)
+    y_mean = y.mean()
+    # compute the intercept and check that it is close to the true intercept
+    np.testing.assert_allclose(
+        _linreg.EXPOSED_compute_intercept(coef_, X_mean, y_mean),
+        intercept_, rtol=1e-2
+    )
+
+
+def test_compute_intercept_multi(lr_multi):
+    """Test the internal compute_intercept function on multi-response data.
+
+    Parameters
+    ----------
+    lr_multi : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get X, y, coefficients, intercept
+    X, y, coef_, intercept_ = lr_multi
+    # compute row-wise means for X< y
+    X_mean = X.mean(axis=0)
+    y_mean = y.mean(axis=0)
+    # compute the intercept and check that it is close to the true intercept
+    np.testing.assert_allclose(
+        _linreg.EXPOSED_compute_intercept(coef_, X_mean, y_mean),
+        intercept_, rtol=1e-2
+    )
