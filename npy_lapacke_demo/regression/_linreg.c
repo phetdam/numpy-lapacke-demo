@@ -618,6 +618,38 @@ except_input_cent_ar:
 }
 
 /**
+ * SVD solver for the `LinearRegression` class.
+ * 
+ * Do NOT call without proper argument checking. Copies input matrix.
+ * 
+ * `coef_` attribute will point to `PyArrayObject *`, `intercept_` attribute
+ * will point to `PyArrayObject *` if multi-target else a `PyFloatObject *`
+ * for single-target, and `singular_` will be `Py_None`. `fitted` set to `1`.
+ * 
+ * Note we don't need an `EXPOSED_*` method for `svd_solver` since we can
+ * verify its performance by fitting a `LinearRegression` instance with
+ * `solver="svd"`. We should not expect `svd_solver` to result in  errors.
+ * 
+ * @param self `LinearRegression *` instance
+ * @param input_ar `PyArrayObject *` input, shape `(n_samples, n_features)`
+ * @param output_ar `PyArrayObject *` response, shape `(n_samples,)` for single
+ *     output or shape `(n_samples, n_targets)` for multi-output
+ * @returns `0` on success, `-1` on error.
+ */
+static int
+svd_solver(
+  LinearRegression *self,
+  PyArrayObject *input_ar, PyArrayObject *output_ar
+)
+{
+  // dummy implementation, just raise NotImplementedError
+  PyErr_SetString(
+    PyExc_NotImplementedError, "solver=\"svd\" not yet implemented"
+  );
+  return -1;
+}
+
+/**
  * `__del__` method for the `LinearRegression` class.
  * 
  * @param self `PyObject *` to `LinearRegression` class instance.
@@ -921,12 +953,10 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
     }
   }
   else if (strcmp(self->solver, "svd") == 0) {
-    // TODO: call SVD solver, giving self, input_ar, output_ar
-    /*
+    // call SVD solving routine (calls dgelss). returns -1 on error
     if (svd_solver(self, input_ar, output_ar) < 0) {
       goto except;
     }
-    */
   }
   // clean up input_ar, output_ar by Py_DECREF and return new ref to self
   Py_DECREF(input_ar);

@@ -166,3 +166,55 @@ def test_qr_solver_multi(lr_multi):
     # fit_intercept=False to prevent intercept computation in the solver.
     lr = LinearRegression(solver="qr", fit_intercept=False).fit(X, y)
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+
+
+@pytest.mark.skip(reason="SVD solver not yet implemented")
+def test_svd_solver_single(lr_single):
+    """Test SVD solver on single-response toy problem.
+
+    No intercept is computed. Refer to test_exposed.py for checking of the
+    Python-inaccessible method used to compute the intercept.
+
+    .. note::
+
+       We don't use the scikit-learn implementation as a benchmark since it
+       uses dgelsd, i.e. SVD with a divide-and-conquer method, which is
+       (surprisingly) less accurate on this particular problem.
+
+    Parameters
+    ----------
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input + output data, coefficients, from lr_single
+    X, y, coef_, _ = lr_single
+    # fit LinearRegression and check that coef_ is close to actual. use
+    # fit_intercept=False to prevent intercept computation in the solver.
+    lr = LinearRegression(solver="svd", fit_intercept=False).fit(X, y)
+    np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+
+
+@pytest.mark.skip(reason="SVD solver not yet implemented")
+def test_svd_solver_multi(lr_multi):
+    """Test SVD solver on multi-response toy problem.
+
+    No intercept is computed. Refer to test_exposed.py for checking of the
+    Python-inaccessible method used to compute the intercept.
+
+    .. note::
+
+       We don't use the scikit-learn implementation as a benchmark since it
+       uses dgelsd, i.e. SVD with a divide-and-conquer method, which is
+       (surprisingly) less accurate on this particular problem.
+
+    Parameters
+    ----------
+    lr_multi : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input + output data, coefficients, from lr_multi
+    X, y, coef_, _ = lr_multi
+    # fit LinearRegression and check that coef_ is close to actual. use
+    # fit_intercept=False to prevent intercept computation in the solver.
+    lr = LinearRegression(solver="svd", fit_intercept=False).fit(X, y)
+    np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
