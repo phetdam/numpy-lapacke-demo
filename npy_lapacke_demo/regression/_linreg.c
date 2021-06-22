@@ -55,9 +55,9 @@ typedef struct {
  * 
  * @param ar `PyArrayObject *` ndarray to operate on. Must have type
  *     `NPY_DOUBLE`, flags `NPY_ARRAY_CARRAY` (row-major ordering), nonempty.
- * @returns `PyObject *`, either 1D `PyArrayObject *` in case `ar` is 2D or
- *     `PyFLoatObject *` in case `ar` is 1D. `NULL` on error + exception set.
- *     If `PyArrayObject *`, `NPY_ARRAY_CARRAY` flags are guaranteed.
+ * @returns New `PyObject *` reference, either 1D `PyArrayObject *` in case
+ *     `ar` is 2D or `PyFLoatObject *` in case `ar` is 1D. `NULL` on error +
+ *     exception set. If `PyArrayObject *`, has `NPY_ARRAY_CARRAY` flags.
  */
 static PyObject *
 npy_vector_matrix_mean(PyArrayObject *ar)
@@ -79,8 +79,8 @@ npy_vector_matrix_mean(PyArrayObject *ar)
   else if (PyArray_NDIM(ar) == 2) {
     // get number of rows, cols
     npy_intp n_rows, n_cols;
-    n_rows = PyArray_DIMS(ar)[0];
-    n_cols = PyArray_DIMS(ar)[1];
+    n_rows = PyArray_DIM(ar, 0);
+    n_cols = PyArray_DIM(ar, 1);
     // dims for the mean of the rows
     npy_intp mean_dims[] = {n_cols};
     // use ndarray to hold the output. has NPY_ARRAY_CARRAY flags
@@ -115,7 +115,7 @@ npy_vector_matrix_mean(PyArrayObject *ar)
  * defined(__INTELLISENSE__) lets Intellisense work on the code in VS Code.
  */
 #if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-// docstring for npy_vector_matrix_mean
+// docstring for EXPOSED_npy_vector_matrix_mean
 PyDoc_STRVAR(
   EXPOSED_npy_vector_matrix_mean_doc,
   "EXPOSED_npy_vector_matrix_mean(ar)"
@@ -127,8 +127,8 @@ PyDoc_STRVAR(
   "Parameters\n"
   "----------\n"
   "ar : numpy.ndarray\n"
-  "    Input array shape ``(n_rows,)`` or ``(n_rows, n_cols)``,\n"
-  "    ``NPY_DOUBLE`` type. For safety, error checking is done. Exception\n"
+  "    Input array shape ``(n_rows,)`` or ``(n_rows, n_cols)``, convertable\n"
+  "    to ``NPY_DOUBLE`` type. For safety, error checking is done. Exception\n"
   "    will be raised if ``ar`` is empty or of incorrect shape."
   "\n\n"
   "Returns\n"
@@ -145,9 +145,9 @@ PyDoc_STRVAR(
  * @param self `PyObject *` module (unused)
  * @param arg `PyObject *` single argument. Method uses `METH_O` flag in its
  *     `PyMethodDef` in `_linreg_methods`, so no `PyArg_ParseTuple` needed.
- * @returns Either `PyArrayObject *` flat vector if `arg` can be converted to
- *     2D `PyArrayObject *` with type `NPY_DOUBLE` or `PyFloatObject *` if
- *     `arg` can be converted to 1D `PyArrayObject *`.
+ * @returns New reference, either `PyArrayObject *` flat vector if `arg` can be
+ *     converted to 2D `PyArrayObject *` with type `NPY_DOUBLE` or
+ *     `PyFloatObject *` if `arg` can be converted to 1D `PyArrayObject *`.
  */
 static PyObject *
 EXPOSED_npy_vector_matrix_mean(PyObject *self, PyObject *arg)
@@ -171,6 +171,258 @@ EXPOSED_npy_vector_matrix_mean(PyObject *self, PyObject *arg)
 // clean up ar on exceptions
 except:
   Py_DECREF(ar);
+  return NULL;
+}
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
+
+/**
+ * Computes the intercept for a linear regression model.
+ * 
+ * Do NOT call without proper input checking. Inner product computed manually
+ * in the single-target case or using `cblas_dgemv` in multi-target case.
+ * 
+ * @param coef `PyArrayObject *` linear coefficients computed by a solver,
+ *     shape `(n_targets, n_features)` or `(n_features,)`. As usual, must have
+ *     type `NPY_DOUBLE` and the `NPY_ARRAY_IN_ARRAY` flags. Note that it is
+ *     NOT guaranteed to be writeable, although aligned and C-contiguous.
+ * @param x_mean `PyArrayObject *` sample mean of the input matrix rows. This
+ *     must have shape `(n_features,)`, same type and flags as `coef`.
+ * @param y_mean `PyObject *`, either `PyArrayObject *` sample mean of the
+ *     response rows, shape `(n_targets,)`, else `PyFloatObject *`. If
+ *     `PyFloatObject *`, then `coef` must have shape `(n_features,)`.
+ * @returns `PyObject *`, either a `PyFloatObject *` if single-target, else
+ *     `PyArrayObject *` shape `(n_targets,)` if multi-target.
+ */
+static PyObject *
+compute_intercept(PyArrayObject *coef, PyArrayObject *x_mean, PyObject *y_mean)
+{
+  // get n_targets, n_features from coef. handle single and multi-target cases
+  npy_intp n_features, n_targets;
+  if (PyArray_NDIM(coef) == 1) {
+    n_features = PyArray_DIM(coef, 0);
+    n_targets = 1;
+  }
+  else {
+    n_features = PyArray_DIM(coef, 1);
+    n_targets = PyArray_DIM(coef, 0);
+  }
+  // get data pointers for coef, x_mean
+  double *coef_data = (double *) PyArray_DATA(coef);
+  double *x_mean_data = (double *) PyArray_DATA(x_mean);
+  // PyObject * pointing the intercept we will return
+  PyObject *bias;
+  // compute intercept. for single-target case, compute manually.
+  if (n_targets == 1) {
+    // inner product of coef, x_mean + y_mean as double (y_mean is python float)
+    double wx_d, y_mean_d;
+    // convert y_mean to double. on error, no Py_DECREF since refs borrowed
+    y_mean_d = PyFloat_AsDouble(y_mean);
+    if (PyErr_Occurred()) {
+      return NULL;
+    }
+    // compute wx_d, the inner product of coef and x_mean
+    wx_d = 0;
+    for (npy_intp i = 0; i < n_features; i++) {
+      wx_d += coef_data[i] * x_mean_data[i];
+    }
+    // assign PyFloatObject * from y_mean_d - wx_d to bias. NULL on error.
+    bias = PyFloat_FromDouble(y_mean_d - wx_d);
+  }
+  // for multi-target case, use dgemv to compute matrix-vector product
+  else {
+    // allocate new intercept array shape (n_targets,) for bias using y_mean.
+    // we need to copy y_mean to use dgemv, hence NPY_ARRAY_ENSURECOPY.
+    bias = PyArray_FROM_OTF(
+      y_mean, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
+    );
+    // return NULL on error since all refs borrowed, nothing to Py_DECREF
+    if (bias == NULL) {
+      return NULL;
+    }
+    // pointer to data of the intercept, shape (n_targets,)
+    double *bias_data = (double *) PyArray_DATA((PyArrayObject *) bias);
+    // compute intercept, stored in bias_data, using coef_data, x_mean_data,
+    // bias_data, i.e. -coef_data @ x_mean_data + bias_data
+    cblas_dgemv(
+      CblasRowMajor, CblasNoTrans,
+      (const MKL_INT) n_targets, (const MKL_INT) n_features, -1,
+      (const double *) coef_data, (const MKL_INT) n_features,
+      (const double *) x_mean_data, 1, 1, bias_data, 1
+    );
+    // done, leave the if-else block
+  }
+  // return bias. NULL on error, which we propagate
+  return bias;
+}
+
+/**
+ * wrapper code for compute_intercept that lets us test it from Python.
+ * note that __INTELLISENSE__ is always defined in VS Code, so including the
+ * defined(__INTELLISENSE__) lets Intellisense work on the code in VS Code.
+ */
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+// docstring for EXPOSED_compute_intercept
+PyDoc_STRVAR(
+  EXPOSED_compute_intercept_doc,
+  "EXPOSED_compute_intercept(coef, x_mean, y_mean)"
+  "\n--\n\n"
+  EXPOSE_INTERNAL_NOTICE
+  "\n\n"
+  "Python-accessible wrapper for internal function `compute_intercept`."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "coef : numpy.ndarray\n"
+  "    Linear model coefficients, shape ``(n_features,)`` for single-target\n"
+  "    problems, ``(n_targets, n_features)`` for multi-target problems.\n"
+  "    Should be convertable to ``NPY_DOUBLE``, ``NPY_ARRAY_IN_ARRAY`` flags.\n"
+  "x_mean : numpy.ndarray\n"
+  "    Mean of the input rows, shape ``(n_features,)``. Should also be\n"
+  "    convertible to the ``NPY_DOUBLE``, ``NPY_ARRAY_IN_ARRAY`` flags.\n"
+  "y_mean : float or numpy.ndarray\n"
+  "    Mean of the response rows, either a float in the single-target case\n"
+  "    or a :class:`numpy.ndarray` in the multi-target case shape\n"
+  "    ``(n_targets,)``. If array, should also be convertible to\n"
+  "    ``NPY_DOUBLE`` with ``NPY_ARRAY_IN_ARRAY`` flags."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float or numpy.ndarray\n"
+  "    If ``coef`` has shape ``(n_features,)`` while ``y_mean`` is a float,\n"
+  "    a Python float is returned, while if ``coef`` has shape\n"
+  "    ``(n_targets, n_features)`` and ``y_mean`` has shape ``(n_targets,)``,\n"
+  "    a :class:`numpy.ndarray` shape ``(n_targets,)`` is returned."
+);
+/**
+ * Python-accessible wrapper for `compute_intercept`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param arg `PyObject *` positional args
+ * @returns New reference, either `PyArrayObject *` flat vector if the response
+ *     is multi-target or a `PyFloatObject *` if response is single-target.
+ *     `PyArrayObject *` has `NPY_DOUBLE` type and `NPY_ARRAY_CARRAY` flags.
+ */
+static PyObject *
+EXPOSED_compute_intercept(PyObject *self, PyObject *args)
+{
+  // PyArrayObject * for coefficients, mean of input matrix
+  PyArrayObject *coef, *x_mean;
+  coef = x_mean = NULL;
+  // PyObject * for mean of the response, could be float or ndarray
+  PyObject *y_mean = NULL;
+  // parse using PyArg_ParseTuple; note only y_mean is not Py_INCREF'd so we
+  // Py_XINCREF it since at except, we Py_XDECREF y_mean
+  if (
+    !PyArg_ParseTuple(
+      args, "O&O&O", PyArray_Converter, (void *) &coef,
+      PyArray_Converter, (void *) &x_mean, &y_mean
+    )
+  ) {
+    Py_XINCREF(y_mean);
+    goto except;
+  }
+  // Py_INCREF y_mean so we can Py_XDECREF coef, x_mean, y_mean all at once on
+  // cleanup instead of having to handle the y_mean case separately
+  Py_INCREF(y_mean);
+  // temp to hold the conversion result of coef, x_mean, y_mean
+  PyArrayObject *temp_ar;
+  // convert coef to NPY_DOUBLE with NPY_ARRAY_IN_ARRAY flags
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) coef, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (temp_ar == NULL) {
+    goto except;
+  }
+  // on success, Py_DECREF coef and assign temp_ar to coef
+  Py_DECREF(coef);
+  coef = temp_ar;
+  // convert x_mean to NPY_DOUBLE with NPY_ARRAY_IN_ARRAY flags
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x_mean, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (temp_ar == NULL) {
+    goto except;
+  }
+  // on success, Py_DECREF x_mean and assign temp_ar to x_mean
+  Py_DECREF(x_mean);
+  x_mean = temp_ar;
+  // neither coef and x_mean may be empty
+  if (PyArray_SIZE(coef) == 0) {
+    PyErr_SetString(PyExc_ValueError, "coef must not be empty");
+    goto except;
+  }
+  if (PyArray_SIZE(x_mean) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x_mean must not be empty");
+    goto except;
+  }
+  // check that coef is either 1 or 2 dims, x_mean is 1 dim
+  if (PyArray_NDIM(coef) != 1 && PyArray_NDIM(coef) != 2) {
+    PyErr_SetString(PyExc_ValueError, "coef must either be 1D or 2D");
+    goto except;
+  }
+  if (PyArray_NDIM(x_mean) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x_mean must be 1D");
+    goto except;
+  }
+  // get n_targets, n_features from coef
+  npy_intp n_features, n_targets;
+  // ndims == 1 => single-target, else multi-target
+  if (PyArray_NDIM(coef) == 1) {
+    n_features = PyArray_DIM(coef, 0);
+    n_targets = 1;
+  }
+  else {
+    n_features = PyArray_DIM(coef, 1);
+    n_targets = PyArray_DIM(coef, 0);
+  }
+  // check that x_mean has length n_features
+  if (PyArray_DIM(x_mean, 0) != n_features) {
+    PyErr_SetString(PyExc_ValueError, "x_mean must have shape (n_features,)");
+    goto except;
+  }
+  // if n_targets == 1, check that y_mean is a PyFloatObject *
+  if (n_targets == 1) {
+    if (!PyFloat_Check(y_mean)) {
+      PyErr_SetString(
+        PyExc_TypeError, "y_mean must be float in single-target case"
+      );
+      goto except;
+    }
+  }
+  // else convert y_mean to PyArrayObject * and check its shape
+  else {
+    temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+      y_mean, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+    );
+    if (temp_ar == NULL) {
+      goto except;
+    }
+    // on success, Py_DECREF y_mean and set to temp_ar
+    Py_DECREF(y_mean);
+    y_mean = (PyObject *) temp_ar;
+    // check that y_mean has 1 dimension only
+    if (PyArray_NDIM((PyArrayObject *) y_mean) != 1) {
+      PyErr_SetString(PyExc_ValueError, "y_mean must be 1D");
+      goto except;
+    }
+    // check that y_mean has shape (n_targets,)
+    if (PyArray_DIM((PyArrayObject *) y_mean, 0) != n_targets) {
+      PyErr_SetString(PyExc_ValueError, "y_mean must have shape (n_targets,)");
+      goto except;
+    }
+  }
+  // get result from compute_intercept. if NULL, we propagate to return
+  PyObject *res = compute_intercept(coef, x_mean, y_mean);
+  // Py_DECREF coef, x_mean, y_mean and return
+  Py_DECREF(coef);
+  Py_DECREF(x_mean);
+  Py_DECREF(y_mean);
+  return res;
+// clean up  coef, x_mean, y_mean on exceptions
+except:
+  Py_XDECREF(coef);
+  Py_XDECREF(x_mean);
+  Py_XDECREF(y_mean);
   return NULL;
 }
 #endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
@@ -202,9 +454,9 @@ qr_solver(
 {
   // get number of samples, features, and targets
   npy_intp n_samples, n_features, n_targets;
-  n_samples = PyArray_DIMS(input_ar)[0];
-  n_features = PyArray_DIMS(input_ar)[1];
-  n_targets = (PyArray_NDIM(output_ar) == 1) ? 1 : PyArray_DIMS(output_ar)[1];
+  n_samples = PyArray_DIM(input_ar, 0);
+  n_features = PyArray_DIM(input_ar, 1);
+  n_targets = (PyArray_NDIM(output_ar) == 1) ? 1 : PyArray_DIM(output_ar, 1);
   // centered copy of input_ar actually used in calculation
   PyArrayObject *input_cent_ar = (PyArrayObject *) PyArray_FROM_OTF(
     (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
@@ -327,10 +579,11 @@ qr_solver(
       goto except_coef_ar;
     }
   }
-  // else we need to compute the intercept
+  // else we compute the intercept using coef_ar, input_mean, output_mean
   else {
-    // TODO: compute intercept given coef_ar, input_mean, output_mean
-    self->intercept_ = PyFloat_FromDouble(0.);
+    self->intercept_ = compute_intercept(
+      (PyArrayObject *) self->coef_, input_mean, output_mean
+    );
     if (self->intercept_ == NULL) {
       goto except_coef_ar;
     }
@@ -573,7 +826,7 @@ PyDoc_STRVAR(
  * 
  * @param self `LinearRegression *` instance
  * @param args `PyObject *` positional args tuple
- * @returns `PyObject *` to `self` to allow method chaining.
+ * @returns New `PyObject *` reference to `self` to allow method chaining.
  */
 static PyObject *
 LinearRegression_fit(LinearRegression *self, PyObject *args)
@@ -616,10 +869,10 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
   }
   // get number of samples, number of features
   npy_intp n_samples, n_features;
-  n_samples = PyArray_DIMS(input_ar)[0];
-  n_features = PyArray_DIMS(input_ar)[1];
+  n_samples = PyArray_DIM(input_ar, 0);
+  n_features = PyArray_DIM(input_ar, 1);
   // check that y has correct number of samples
-  if (PyArray_DIMS(output_ar)[0] != n_samples) {
+  if (PyArray_DIM(output_ar, 0) != n_samples) {
     PyErr_SetString(PyExc_ValueError, "number of rows of X, y must match");
     goto except;
   }
@@ -714,21 +967,27 @@ PyDoc_STRVAR(
  * No keyword arguments needed, so `kwargs` is omitted.
  * 
  * @param self `LinearRegression *` instance
- * @param args `PyObject *` positional args tuple
- * @returns `PyArrayObject *` cast to `PyObject *` giving predicted responses.
+ * @param arg `PyObject *` representing the input matrix
+ * @returns New reference, `PyArrayObject *` cast to `PyObject *` giving
+ *    the responses predicted from the input.
  */
 static PyObject *
-LinearRegression_predict(LinearRegression *self, PyObject *args)
+LinearRegression_predict(LinearRegression *self, PyObject *arg)
 {
   // if model is not fitted, raise RuntimeError
   if (!self->fitted) {
     PyErr_SetString(PyExc_RuntimeError, "cannot predict with unfitted model");
     return NULL;
   }
-  // input ndarray. set to NULL so Py_XDECREF on cleanup doesn't segfault.
-  PyArrayObject *input_ar = NULL;
-  // parse input and response, converting to ndarray. NULL on error.
-  if (!PyArg_ParseTuple(args, "O&", PyArray_Converter, (void *) &input_ar)) {
+  /**
+   * input ndarray, which we attempt to convert from arg. can use
+   * NPY_ARRAY_IN_ARRAY instead of NPY_ARRAY_CARRAY since we don't need to
+   * write to input_ar. NPY_DOUBLE type as usual.
+   */
+  PyArrayObject *input_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    arg, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (input_ar == NULL) {
     return NULL;
   }
   // check that input_ar has positive size and appropriate shape
@@ -743,26 +1002,10 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
     );
     goto except_input_ar;
   }
-  /**
-   * convert to C-contiguous NPY_DOUBLE array. NPY_ARRAY_IN_ARRAY is same as
-   * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. use temporary
-   * PyObject * to hold the results of the cast.
-   */
-  PyArrayObject *temp_ar;
-  // attempt conversion of input_ar
-  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (temp_ar == NULL) {
-    goto except_input_ar;
-  }
-  // on success, we can Py_DECREF input_ar and set input_ar to temp_ar
-  Py_DECREF(input_ar);
-  input_ar = temp_ar;
   // for convenience, get number of rows and columns of input_ar
   npy_intp n_samples, n_features;
-  n_samples = PyArray_DIMS(input_ar)[0];
-  n_features = PyArray_DIMS(input_ar)[1];
+  n_samples = PyArray_DIM(input_ar, 0);
+  n_features = PyArray_DIM(input_ar, 1);
 /**
  * typically npy_intp has same size as long, 64-bit on 64-bit architecture.
  * if we aren't linked against Intel MKL (make links to ILP64, 64-bit int),
@@ -823,8 +1066,8 @@ LinearRegression_predict(LinearRegression *self, PyObject *args)
   }
   // else if multi-target, i.e. PyArray_NDIM gives 2, we use cblas_dgemm
   else {
-    // get number of targets, i.e. PyArray_DIMS(self->coef_)[0]
-    npy_intp n_targets = PyArray_DIMS((PyArrayObject *) self->coef_)[0];
+    // get number of targets (coef rows), i.e. PyArray_DIM(self->coef_, 0)
+    npy_intp n_targets = PyArray_DIM((PyArrayObject *) self->coef_, 0);
     // create output_ar dims and output_ar, shape (n_samples, n_targets)
     npy_intp dims[] = {n_samples, n_targets};
     output_ar = (PyArrayObject *) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
@@ -880,7 +1123,7 @@ static PyMethodDef LinearRegression_methods[] = {
   },
   {
     "predict", (PyCFunction) LinearRegression_predict,
-    METH_VARARGS, LinearRegression_predict_doc
+    METH_O, LinearRegression_predict_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
@@ -957,6 +1200,12 @@ static PyMethodDef _linreg_methods[] = {
     (PyCFunction) EXPOSED_npy_vector_matrix_mean,
     METH_O,
     EXPOSED_npy_vector_matrix_mean_doc
+  },
+  {
+    "EXPOSED_compute_intercept",
+    (PyCFunction) EXPOSED_compute_intercept,
+    METH_VARARGS,
+    EXPOSED_compute_intercept_doc
   },
 #endif /* EXPOSE_INTERNAL */
   // sentinel marking end of array
