@@ -562,15 +562,15 @@ qr_solver(
   if (coef_ar == NULL) {
     goto except_pivot_idx;
   }
-  // copy data from output_copy_data into coef_ar's data pointer
+  // copy data from output_copy_data into coef_ar's data pointer (transpose)
   double *coef_data = (double *) PyArray_DATA(coef_ar);
   for (npy_intp i = 0; i < n_targets; i++) {
     for (npy_intp j = 0; j < n_features; j++) {
       coef_data[i * n_features + j] = output_copy_data[j * n_targets + i];
     }
   }
+  // set self->rank_ and self->coef_
   self->rank_ = rank_;
-  // self->rank_ already set, so we set coef_ now
   self->coef_ = (PyObject *) coef_ar;
   // if self->fit_intercept is 0, set fit_intercept to new PyFloatObject *
   if (!self->fit_intercept) {
@@ -588,7 +588,7 @@ qr_solver(
       goto except_coef_ar;
     }
   }
-  // self->rank_ already been set. singular_ always None when using QR solver
+  // singular_ always None when using QR solver
   Py_INCREF(Py_None);
   self->singular_ = Py_None;
   // coef_, intercept_, rank_, singular_ have been set. first free pivot_idx
@@ -630,6 +630,9 @@ except_input_cent_ar:
  * verify its performance by fitting a `LinearRegression` instance with
  * `solver="svd"`. We should not expect `svd_solver` to result in  errors.
  * 
+ * Most of the code before and after the call to `dgelss` is essentially copied
+ * from `qr_solver` since the setup is relatively similar.
+ * 
  * @param self `LinearRegression *` instance
  * @param input_ar `PyArrayObject *` input, shape `(n_samples, n_features)`
  * @param output_ar `PyArrayObject *` response, shape `(n_samples,)` for single
@@ -642,10 +645,184 @@ svd_solver(
   PyArrayObject *input_ar, PyArrayObject *output_ar
 )
 {
-  // dummy implementation, just raise NotImplementedError
-  PyErr_SetString(
-    PyExc_NotImplementedError, "solver=\"svd\" not yet implemented"
+  // get number of samples, features, and targets
+  npy_intp n_samples, n_features, n_targets;
+  n_samples = PyArray_DIM(input_ar, 0);
+  n_features = PyArray_DIM(input_ar, 1);
+  n_targets = (PyArray_NDIM(output_ar) == 1) ? 1 : PyArray_DIM(output_ar, 1);
+  // centered copy of input_ar actually used in calculation
+  PyArrayObject *input_cent_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
   );
+  if (input_cent_ar == NULL) {
+    return -1;
+  }
+  // copy of output_ar, used to store the result
+  PyArrayObject *output_copy_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) output_ar, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
+  );
+  if (output_copy_ar == NULL) {
+    goto except_input_cent_ar;
+  }
+  /**
+   * we need to center input_cent_ar and need the means of the rows of input_ar,
+   * output_ar to compute the intercept, so we compute them now. the mean of
+   * the of the input_ar rows is guaranteed to be PyArrayObject *, but the
+   * mean of the rows of output_ar might be PyFloatObject * if n_targets = 1.
+   */
+  PyArrayObject *input_mean;
+  input_mean = (PyArrayObject *) npy_vector_matrix_mean(input_ar);
+  if (input_mean == NULL) {
+    goto except_output_copy_ar;
+  }
+  PyObject *output_mean;
+  output_mean = npy_vector_matrix_mean(output_ar);
+  if (output_mean == NULL) {
+    goto except_input_mean;
+  }
+  // double * to the data of input_cent_ar, output_copy_ar, input_mean
+  double *input_cent_data = (double *) PyArray_DATA(input_cent_ar);
+  double *output_copy_data = (double *) PyArray_DATA(output_copy_ar);
+  double *input_mean_data = (double *) PyArray_DATA(input_mean);
+  // center input_cent_data by subtracting out the means for each column
+  for (npy_intp j = 0; j < n_features; j++) {
+    for (npy_intp i = 0; i < n_samples; i++) {
+      input_cent_data[i * n_features + j] -= input_mean_data[j];
+    }
+  }
+  // allocate PyArrayObject * which will hold the singular values
+  npy_intp singular_dims[] = {n_features};
+  PyArrayObject *singular_ar = (PyArrayObject *) PyArray_SimpleNew(
+    1, singular_dims, NPY_DOUBLE
+  );
+  if (singular_ar == NULL) {
+    goto except_output_mean;
+  }
+  // pointer to data of singular_ar
+  double *singular_data = (double *) PyArray_DATA(singular_ar);
+/**
+ * typically npy_intp has same size as long, 64-bit on 64-bit architecture.
+ * if we aren't linked against Intel MKL (make links to ILP64, 64-bit int),
+ * i.e. MKL_ILP64 not defined, and not linked against OpenBLAS built with
+ * INTERFACE64=1 for 64-bit int, i.e. OPENBLAS_USE64BITINT not defined, we need
+ * to check if n_samples, n_features, n_targets exceeds INT_MAX. if so, raise
+ * raise OverflowError, as values > 2^32 - 1 can cause dangerous results.
+ */ 
+#if !defined(MKL_ILP64) && !defined(OPENBLAS_USE64BITINT)
+  if (n_samples > INT_MAX || n_features > INT_MAX || n_targets > INT_MAX) {
+    PyErr_SetString(
+      PyExc_OverflowError,
+      "CBLAS/LAPACKE implementation does not support 64-bit indexing"
+    );
+    goto except_singular_ar;
+  }
+#endif
+  // status returned by dgelss. if -i returned, the ith input is illegal,
+  // while i > 0 returned indicates that convergence failed.
+  lapack_int svd_status;
+  /**
+   * call dgelss on input_cent_data, output_copy_data, pivot_idx which solves
+   * linear system using SVD. all arrays overwritten, and the result is stored
+   * in output_copy_ar. LAPACKE_dgelss returns < 0 => bad input, > 0 => that
+   * convergence failed. like with dgelsy, we arbitrarily choose 1e-8 as
+   * reciprocal of max condition of input_cent_data.
+   */
+  long rank_;
+  svd_status = LAPACKE_dgelss(
+    LAPACK_ROW_MAJOR, (lapack_int) n_samples, (lapack_int) n_features,
+    (lapack_int) n_targets, input_cent_data, (lapack_int) n_features,
+    output_copy_data, (lapack_int) n_targets,
+    singular_data, 1e-8, (lapack_int *) &rank_
+  );
+  // handle the possible return values of dgelss. 0 is normal exit
+  if (svd_status == 0) {
+    ;
+  }
+  // svd_status < 0 => illegal input
+  else if (svd_status < 0) {
+    PyErr_Format(
+      PyExc_RuntimeError, "LAPACKE_dgelss: parameter %ld is an illegal value. "
+      "please ensure X, y do not contain nan or inf values", -svd_status
+    );
+    goto except_singular_ar;
+  }
+  // else svd_status > 0 => convergence failed
+  else {
+    PyErr_Format(
+      PyExc_RuntimeError, "LAPACKE_dgelss: convergence failed. "
+      "%ld off-diagonal elements of an intermediate bidiagonal form "
+      "did not converge to zero", svd_status
+    );
+    goto except_singular_ar;
+  }
+  // dims for coef_. if multi-target, shape (n_targets, n_features), while if
+  // single-target, shape (n_targets,), so different initializations.
+  npy_intp coef_dims[2];
+  if (n_targets == 1) {
+    coef_dims[0] = n_features;
+  }
+  else {
+    coef_dims[0] = n_targets;
+    coef_dims[1] = n_features;
+  }
+  // create new NPY_ARRAY_CARRAY to hold the solution in output_copy_ar. if
+  // single target, ignore second (unset) dim, else use both for multi
+  PyArrayObject *coef_ar = (PyArrayObject *) PyArray_SimpleNew(
+    (n_targets == 1) ? 1 : 2, coef_dims, NPY_DOUBLE
+  );
+  if (coef_ar == NULL) {
+    goto except_singular_ar;
+  }
+  // copy data from output_copy_data into coef_ar's data pointer (tranpose)
+  double *coef_data = (double *) PyArray_DATA(coef_ar);
+  for (npy_intp i = 0; i < n_targets; i++) {
+    for (npy_intp j = 0; j < n_features; j++) {
+      coef_data[i * n_features + j] = output_copy_data[j * n_targets + i];
+    }
+  }
+  // set self->rank_ and self->coef_
+  self->rank_ = rank_;
+  self->coef_ = (PyObject *) coef_ar;
+  // if self->fit_intercept is 0, set fit_intercept to new PyFloatObject *
+  if (!self->fit_intercept) {
+    self->intercept_ = PyFloat_FromDouble(0.);
+    if (self->intercept_ == NULL) {
+      goto except_coef_ar;
+    }
+  }
+  // else we compute the intercept using coef_ar, input_mean, output_mean
+  else {
+    self->intercept_ = compute_intercept(
+      (PyArrayObject *) self->coef_, input_mean, output_mean
+    );
+    if (self->intercept_ == NULL) {
+      goto except_coef_ar;
+    }
+  }
+  // set self->singular_, already set rank_, coef_, intercept_
+  self->singular_ = (PyObject *) singular_ar;
+  // coef_, intercept_, rank_, singular_ have been set. clean up all previously
+  // allocated PyObject * except coef_ar, singular_ar
+  Py_DECREF(output_mean);
+  Py_DECREF(input_mean);
+  Py_DECREF(output_copy_ar);
+  Py_DECREF(input_cent_ar);
+  // done with cleanup, so set self->fitted to 1 and we can return
+  self->fitted = 1;
+  return 0;
+// clean up all the allocated PyObject * and memory on failure
+except_coef_ar:
+  Py_DECREF(coef_ar);
+except_singular_ar:
+  Py_DECREF(singular_ar);
+except_output_mean:
+  Py_DECREF(output_mean);
+except_input_mean:
+  Py_DECREF(input_mean);
+except_output_copy_ar:
+  Py_DECREF(output_copy_ar);
+except_input_cent_ar:
+  Py_DECREF(input_cent_ar);
   return -1;
 }
 

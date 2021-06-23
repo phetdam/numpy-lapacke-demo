@@ -168,7 +168,7 @@ def test_qr_solver_multi(lr_multi):
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
 
 
-@pytest.mark.skip(reason="SVD solver not yet implemented")
+@pytest.mark.skip(reason="singular values for original problem not computed")
 def test_svd_solver_single(lr_single):
     """Test SVD solver on single-response toy problem.
 
@@ -194,7 +194,7 @@ def test_svd_solver_single(lr_single):
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
 
 
-@pytest.mark.skip(reason="SVD solver not yet implemented")
+@pytest.mark.skip(reason="singular values for original problem not computed")
 def test_svd_solver_multi(lr_multi):
     """Test SVD solver on multi-response toy problem.
 
