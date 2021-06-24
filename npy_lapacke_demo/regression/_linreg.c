@@ -20,10 +20,8 @@
 // depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
 #include "npy_lapacke_demo/cblas.h"
 #include "npy_lapacke_demo/lapacke.h"
-
-// default message to include in all EXPOSED_* C function docstrings
-#define EXPOSE_INTERNAL_NOTICE \
-  "This function should NOT be included in production code."
+// defines the EXPOSE_INTERNAL_NOTICE macro
+#include "npy_lapacke_demo/extutils.h"
 
 // struct representing our linear regression estimator
 typedef struct {
