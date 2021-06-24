@@ -6,7 +6,8 @@
  * OpenBLAS, or Intel MKL, but Intel MKL uses a different header file, `mkl.h`,
  * while OpenBLAS uses the CBLAS header `cblas.h`. This file includes the
  * correct header file given an appropriate preprocessor macro is defined, and
- * defines some types appropriately so that
+ * defines some types appropriately so that the user can simply write in terms
+ * of the Intel MKL interface, whether or not Intel MKL is actually linked.
  */
 
 #ifndef NPY_LPK_CBLAS_H
