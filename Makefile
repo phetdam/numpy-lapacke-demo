@@ -12,7 +12,7 @@ pkg_name = npy_lapacke_demo
 # directory for libgtest test runner code
 gtest_dir = gtest
 # C extension module dependencies
-ext_deps = $(wildcard $(pkg_name)/regression/*.c)
+ext_deps = $(pkg_name)/regression/_linreg.c $(pkg_name)/solvers/_mnewton.c
 # Python source dependencies. important to include setup.py, which does config
 py_deps = setup.py $(wildcard $(pkg_name)/*.py) \
 	$(wildcard $(pkg_name)/regression/*.py)

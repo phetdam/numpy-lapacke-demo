@@ -142,16 +142,26 @@ def _get_ext_modules(env):
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
         cblap_macros += [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
+    # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
+    cblap_build_kwargs = dict(
+        include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
+        library_dirs=cblap_lib_dirs, runtime_library_dirs=cblap_lib_dirs,
+        libraries=cblap_lib_names, define_macros=cblap_macros,
+        extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
+    )
     # return C extension modules
     return [
         # npy_lapacke_demo.regression._linreg, providing LinearRegression class
         Extension(
             name="regression._linreg",
             sources=[f"{__package__}/regression/_linreg.c"],
-            include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
-            library_dirs=cblap_lib_dirs, runtime_library_dirs=cblap_lib_dirs,
-            libraries=cblap_lib_names, define_macros=cblap_macros,
-            extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
+            **cblap_build_kwargs
+        ),
+        # npy_lapacke_demo.solvers._mnewton, providing mnewton function
+        Extension(
+            name="solvers._mnewton",
+            sources=[f"{__package__}/solvers/_mnewton.c"],
+            **cblap_build_kwargs
         )
     ]
 
@@ -174,7 +184,7 @@ def _setup():
         url="https://github.com/phetdam/scipy_fastmin",
         packages=find_packages(),
         python_requires=">=3.6",
-        install_requires=["numpy>=1.19.1"],
+        install_requires=["numpy>=1.19.1", ["scipy>=1.5.2"]],
         extras_require={"tests": ["pytest>=6.0.1", "scikit-learn>=0.23.2"]},
         ext_package=__package__,
         ext_modules=_get_ext_modules(os.environ)
