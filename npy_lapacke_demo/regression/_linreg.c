@@ -1429,7 +1429,7 @@ PyDoc_STRVAR(
 // _linreg module definition
 static PyModuleDef _linreg_module = {
   PyModuleDef_HEAD_INIT,
-  // name, docstring, size = -1 to disable subinterpreter support
+  // name, docstring, size = -1 to disable subinterpreter support, methods
   .m_name = "_linreg",
   .m_doc = _linreg_doc,
   .m_size = -1,
