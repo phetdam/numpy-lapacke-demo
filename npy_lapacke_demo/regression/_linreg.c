@@ -2,7 +2,7 @@
  * @file _linreg.c
  * @brief C implementation of OLS linear regression solved by QR or SVD.
  * 
- * Directly calls into LAPACKE routines dgelsy, dgelss.
+ * Directly calls into LAPACKE routines dgelsy, dgelss to solve.
  */
 
 #define PY_SSIZE_T_CLEAN
