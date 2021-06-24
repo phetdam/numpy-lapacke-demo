@@ -529,12 +529,11 @@ qr_solver(
    * result is stored in output_copy_ar. LAPACKE_dgelsy returns < 0 => error.
    * arbitrarily choose 1e-8 as reciprocal of max condition of input_cent_data.
    */
-  long rank_;
+  lapack_int rank_;
   qr_status = LAPACKE_dgelsy(
     LAPACK_ROW_MAJOR, (lapack_int) n_samples, (lapack_int) n_features,
     (lapack_int) n_targets, input_cent_data, (lapack_int) n_features,
-    output_copy_data, (lapack_int) n_targets,
-    pivot_idx, 1e-8, (lapack_int *) &rank_
+    output_copy_data, (lapack_int) n_targets, pivot_idx, 1e-8, &rank_
   );
   // if qr_status < 0, error, so we need to set an exception
   if (qr_status < 0) {
@@ -570,7 +569,7 @@ qr_solver(
     }
   }
   // set self->rank_ and self->coef_
-  self->rank_ = rank_;
+  self->rank_ = (long) rank_;
   self->coef_ = (PyObject *) coef_ar;
   // if self->fit_intercept is 0, set fit_intercept to new PyFloatObject *
   if (!self->fit_intercept) {
@@ -727,12 +726,11 @@ svd_solver(
    * convergence failed. like with dgelsy, we arbitrarily choose 1e-8 as
    * reciprocal of max condition of input_cent_data.
    */
-  long rank_;
+  lapack_int rank_;
   svd_status = LAPACKE_dgelss(
     LAPACK_ROW_MAJOR, (lapack_int) n_samples, (lapack_int) n_features,
     (lapack_int) n_targets, input_cent_data, (lapack_int) n_features,
-    output_copy_data, (lapack_int) n_targets,
-    singular_data, 1e-8, (lapack_int *) &rank_
+    output_copy_data, (lapack_int) n_targets, singular_data, 1e-8, &rank_
   );
   // handle the possible return values of dgelss. 0 is normal exit
   if (svd_status == 0) {
@@ -781,7 +779,7 @@ svd_solver(
     }
   }
   // set self->rank_ and self->coef_
-  self->rank_ = rank_;
+  self->rank_ = (long) rank_;
   self->coef_ = (PyObject *) coef_ar;
   // if self->fit_intercept is 0, set fit_intercept to new PyFloatObject *
   if (!self->fit_intercept) {
@@ -1348,7 +1346,10 @@ PyDoc_STRVAR(
   "``solver=\"qr\"`` is faster than ``solver=\"svd\"``."
   "\n\n"
   "All members are read-only. Members listed under `Attributes`_ are\n"
-  "available only after the model has been fitted."
+  "available only after the model has been fitted. Note that when\n"
+  "``solver=\"svd\"`` the value of ``singular_`` will differ from that of\n"
+  "scikit-learn implementation, which also scales the columns to unit norm\n"
+  "before calling a LAPACKE routine on the transformed data."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -1368,9 +1369,9 @@ PyDoc_STRVAR(
   "intercept_ : float or numpy.ndarray\n"
   "    Intercept of the linear model. If multioutput, shape ``(n_targets,)``.\n"
   "rank_ : int\n"
-  "    Effective rank of the input matrix.\n"
+  "    Effective rank of the centered input matrix.\n"
   "singular_ : numpy.ndarray\n"
-  "    Singular values of the input matrix shape\n"
+  "    Singular values of the centered input matrix shape\n"
   "    ``(min(n_samples, n_features),)`` if ``solver=\"svd\"``, else ``None``."
   "\n\n"
   "Methods\n"

@@ -83,7 +83,7 @@ def test_fit_sanity(lr_default, lr_single):
         pytest fixture. See local conftest.py.
     """
     # get input and output data from lr_single
-    X, y, _, _ = lr_single
+    X, y, _, _, _, _ = lr_single
     # PRNG used to generator some random values. actual values don't matter so
     # we don't have to seed this particular Generator
     rng = np.random.default_rng()
@@ -135,12 +135,14 @@ def test_qr_solver_single(lr_single):
     lr_single : tuple
         pytest fixture. See local conftest.py.
     """
-    # get input + output data, coefficients, from lr_single
-    X, y, coef_, _ = lr_single
+    # get input + output data, coefficients, rank from lr_single
+    X, y, coef_, _, rank_, _ = lr_single
     # fit LinearRegression and check that coef_ is close to actual. use
     # fit_intercept=False to prevent intercept computation in the solver.
     lr = LinearRegression(solver="qr", fit_intercept=False).fit(X, y)
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+    # check that lr.rank_ is same as rank_ (lr.singular_ is None)
+    assert rank_ == lr.rank_
 
 
 def test_qr_solver_multi(lr_multi):
@@ -160,12 +162,14 @@ def test_qr_solver_multi(lr_multi):
     lr_multi : tuple
         pytest fixture. See local conftest.py.
     """
-    # get input + output data, coefficients, from lr_multi
-    X, y, coef_, _ = lr_multi
+    # get input + output data, coefficients, rank from lr_multi
+    X, y, coef_, _, rank_, _ = lr_multi
     # fit LinearRegression and check that coef_ is close to actual. use
     # fit_intercept=False to prevent intercept computation in the solver.
     lr = LinearRegression(solver="qr", fit_intercept=False).fit(X, y)
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+    # check that lr.rank_ is same as rank_ (lr.singular_ is None)
+    assert rank_ == lr.rank_
 
 
 @pytest.mark.skip(reason="singular values for original problem not computed")
@@ -186,12 +190,15 @@ def test_svd_solver_single(lr_single):
     lr_single : tuple
         pytest fixture. See local conftest.py.
     """
-    # get input + output data, coefficients, from lr_single
-    X, y, coef_, _ = lr_single
+    # get input + output data, coefficients, rank, singular values
+    X, y, coef_, _, rank_, singular_ = lr_single
     # fit LinearRegression and check that coef_ is close to actual. use
     # fit_intercept=False to prevent intercept computation in the solver.
     lr = LinearRegression(solver="svd", fit_intercept=False).fit(X, y)
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+    # check that lr.rank_ == rank_ and that lr.singular_ is close enough
+    assert rank_ == lr.rank_
+    np.testing.assert_allclose(lr.singular_, singular_)
 
 
 @pytest.mark.skip(reason="singular values for original problem not computed")
@@ -212,9 +219,12 @@ def test_svd_solver_multi(lr_multi):
     lr_multi : tuple
         pytest fixture. See local conftest.py.
     """
-    # get input + output data, coefficients, from lr_multi
-    X, y, coef_, _ = lr_multi
+    # get input + output data, coefficients, rank, singular values
+    X, y, coef_, _, rank_, singular_ = lr_multi
     # fit LinearRegression and check that coef_ is close to actual. use
     # fit_intercept=False to prevent intercept computation in the solver.
     lr = LinearRegression(solver="svd", fit_intercept=False).fit(X, y)
     np.testing.assert_allclose(lr.coef_, coef_, rtol=1e-2)
+    # check that lr.rank_ == rank_ and that lr.singular_ is close enough
+    assert rank_ == lr.rank_
+    np.testing.assert_allclose(lr.singular_, singular_)

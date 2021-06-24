@@ -53,7 +53,7 @@ def test_compute_intercept_single(lr_single):
         pytest fixture. See local conftest.py.
     """
     # get X, y, coefficients, intercept
-    X, y, coef_, intercept_ = lr_single
+    X, y, coef_, intercept_, _, _ = lr_single
     # compute row-wise (axis=0) means for X, y
     X_mean = X.mean(axis=0)
     y_mean = y.mean()
@@ -73,7 +73,7 @@ def test_compute_intercept_multi(lr_multi):
         pytest fixture. See local conftest.py.
     """
     # get X, y, coefficients, intercept
-    X, y, coef_, intercept_ = lr_multi
+    X, y, coef_, intercept_, _, _ = lr_multi
     # compute row-wise means for X< y
     X_mean = X.mean(axis=0)
     y_mean = y.mean(axis=0)
