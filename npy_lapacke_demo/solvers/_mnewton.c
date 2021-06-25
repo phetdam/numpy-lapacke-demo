@@ -24,11 +24,178 @@
 // defines the EXPOSE_INTERNAL_NOTICE macro
 #include "npy_lapacke_demo/extutils.h"
 
+/**
+ * Remove a select subset of string keys from a kwargs dict.
+ * 
+ * Do NOT call without proper input checking. All keys must be string keys.
+ * 
+ * @param kwargs `PyObject *` implementing `PyDictObject` interface. All keys
+ *     are strings, ex. the `kwargs` given to `PyArg_ParseTupleAndKeywords`.
+ * @param droplist `char **` to `NULL`-terminated array of strings giving the
+ *     names of string keys to drop from `kwargs`.
+ * @param warn `int`, `!=0` to emit warning if a kwarg name in `droplist` is
+ *     not in `kwargs`, `0` for silent no-op if kwarg name not in `kwargs`.
+ * @returns The nonnegative number of names dropped from `kwargs` on success
+ *     or `-1` on error with appropriate exception set.
+ */
+static Py_ssize_t
+remove_specified_kwargs(PyObject *kwargs, const char **droplist, int warn)
+{
+  // number of names in kwargs dropped
+  Py_ssize_t drops = 0;
+  // index into droplist
+  Py_ssize_t i = 0;
+  // pointer to python string created from each key in droplist
+  PyObject *key;
+  // until we reach the end of droplist
+  while (droplist[i] != NULL) {
+    // create python string from droplist[i]. NULL on error
+    key = PyUnicode_FromString(droplist[i]);
+    if (key == NULL) {
+      return -1;
+    }
+    // check that kwargs contains key. -1 on error, 0 for no, 1 for yes.
+    int contains = PyDict_Contains(kwargs, key);
+    // attempt to remove if key is in kwargs
+    if (contains == 1) {
+      // -1 on error, in which case we have to clean up
+      if (PyDict_DelItem(kwargs, key) < 0) {
+        goto except_key;
+      }
+      // on success, increment drops
+      drops++;
+    }
+    // clean up on error
+    else if (contains == -1) {
+      goto except_key;
+    }
+    // else key not in kwargs. if warn, emit warning, else fall through
+    else if (warn) {
+      // returns -1 if exception is raised on warning, so we have to clean up
+      if (
+        PyErr_WarnFormat(
+          PyExc_RuntimeWarning, 1, "key %s not in kwargs", droplist[i]
+        ) < 0
+      ) {
+        goto except_key;
+      }
+    }
+    // clean up key and move on
+    Py_DECREF(key);
+    i++;
+  }
+  // everything cleaned up and we can return drops
+  return drops;
+// clean up before returning on error
+except_key:
+  Py_DECREF(key);
+  return -1;
+}
+
+/**
+ * Remove all keys from a kwargs dict except for a select subset of names.
+ * 
+ * Do NOT call without proper input checking. Naive two-loop implementation.
+ * All the keys of the dict are expected to be strings.
+ * 
+ * @param kwargs `PyObject *` implementing `PyDictObject` interface. All keys
+ *     are strings, ex. the `kwargs` given to `PyArg_ParseTupleAndKeywords`.
+ * @param keeplist `char **` to `NULL`-terminated array of strings giving the
+ *     names of string keys to keep in `kwargs`.
+ * @param warn `int`, `!=0` to emit warning whenever an unspecified kwarg is
+ *     dropped, `0` for silent dropping of unwanted kwargs.
+ * @returns The nonnegative number of names dropped from `kwargs` on success
+ *     or `-1` on error with appropriate exception set.
+ */
+static Py_ssize_t
+remove_unspecified_kwargs(PyObject *kwargs, const char **keeplist, int warn)
+{
+  // number of names in kwargs dropped
+  Py_ssize_t drops = 0;
+  // get list of keys from kwargs
+  PyObject *kwargs_keys = PyDict_Keys(kwargs);
+  if (kwargs_keys == NULL) {
+    return -1;
+  }
+  // get length of kwargs_keys. no need for error checking (will be a list)
+  Py_ssize_t n_keys = PyList_GET_SIZE(kwargs_keys);
+  /**
+   * PyObject * to hold references to current key to check if in keeplist and a
+   * key from keeplist to check against. function scope eases cleanup.
+   */
+  PyObject *kwargs_key_i, *keep_key_j;
+  // for each key in kwargs_keys
+  for (Py_ssize_t i = 0; i < n_keys; i++) {
+    // get reference to the key (no checking)
+    kwargs_key_i = PyList_GET_ITEM(kwargs_keys, i);
+    // for each name in keeplist (indexed by j)
+    Py_ssize_t j = 0;
+    while (keeplist[j] != 0) {
+      // create python string from keeplist[j]. NULL on error
+      keep_key_j = PyUnicode_FromString(keeplist[j]);
+      if (keep_key_j == NULL) {
+        goto except;
+      }
+      // compare kwargs_key_i to keep_key_j. match is 1, 0 no match, -1 error.
+      int key_match;
+      key_match = PyObject_RichCompareBool(kwargs_key_i, keep_key_j, Py_EQ);
+      // clean up keep_key_j with Py_DECREF (don't need it anymore)
+      Py_DECREF(keep_key_j);
+      // check value of key_match. if error, clean up
+      if (key_match == -1) {
+        goto except;
+      }
+      // if key_match is 1, kwargs_key_i in keeplist. break
+      if (key_match == 1) {
+        break;
+      }
+      // else move to next item in keeplist to compare against
+      j++;
+    }
+    // if keeplist[j] == NULL, then no match. we drop kwargs_key_i
+    if (keeplist[j] == NULL) {
+      // -1 on failure, in which case we need to clean up
+      if (PyDict_DelItem(kwargs, kwargs_key_i) < 0) {
+        goto except;
+      }
+      // if warn is true, i.e != 0, emit UserWarning after drop
+      if (warn) {
+        // get name of key as string (don't need to deallocate). NULL on error
+        const char *kwargs_str_i = PyUnicode_AsUTF8(kwargs_key_i);
+        if (kwargs_str_i == NULL) {
+          goto except;
+        }
+        // if warning issuance returns -1, exception was raised, so clean up
+        if (
+          PyErr_WarnFormat(
+            PyExc_UserWarning, 1, "named argument %s removed from kwargs",
+            kwargs_str_i
+          ) < 0
+        ) {
+          goto except;
+        }
+      }
+      // on success, increment drops
+      drops++;
+    }
+    // clean up kwargs_key_i
+    Py_DECREF(kwargs_key_i);
+  }
+  // after dropping keys not in keeplist, clean up + return drops
+  Py_DECREF(kwargs_keys);
+  return drops;
+// clean up before returning error
+except:
+  Py_DECREF(kwargs_key_i);
+  Py_DECREF(kwargs_keys);
+  return -1;
+}
+
 // docstring for mnewton
 PyDoc_STRVAR(
   mnewton_doc,
-  "mnewton(fun, x0, args=(), jac=None, hess=None, tol=1e-4, maxiter=1000,\n"
-  "alpha=0.5, beta=1e-3, gamma=0.8, **ignored)"
+  "mnewton(fun, x0, *, args=(), jac=None, hess=None, gtol=1e-4,\n"
+  "maxiter=1000, alpha=0.5, beta=1e-3, gamma=0.8, **ignored)"
   "\n--\n\n"
   "Newton's method, adding scaled identity matrix to the Hessian if necessary."
   "\n\n"
@@ -40,9 +207,41 @@ PyDoc_STRVAR(
   "\n\n"
   "Hessian modification implements Algorithm 3.3 in [#]_, on page 51."
   "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "fun : callable\n"
+  "    Objective function to minimize, with signature ``fun(x, *args)`` and\n"
+  "    returning a :class:`numpy.ndarray` with shape ``(n_features,)``.\n"
+  "x0 : numpy.ndarray\n"
+  "    Initial solution guess, shape ``(n_features,)``\n"
+  "args : tuple, default=()\n"
+  "    Positional arguments to pass to ``fun``, ``jac``, and ``hess``\n"
+  "jac : callable, default=None\n"
+  "    Gradient of ``fun``, with signature ``grad(x, *args)`` and returning\n"
+  "    a :class:`numpy.ndarray` with shape ``(n_features,)``. If ``True``,\n"
+  "    then ``fun`` is expected to return ``(loss, grad)``. If not\n"
+  "    specified, a :class:`RuntimeError` will be raised.\n"
+  "hess : callable, default=None\n"
+  "    Hessian of ``fun``, with signature ``hess(x, *args)`` and returning\n"
+  "    a :class:`numpy.ndarray` with shape ``(n_features, n_features)``. If\n"
+  "    not specified, a :class:`RuntimeError` will be raised.\n"
+  "\n\n"
   ".. [#] Nocedal, J., & Wright, S. (2006). *Numerical Optimization*.\n"
   "   Springer Science and Business Media."
 );
+// mnewton argument names. PyArg_ParseTupleAndKeywords requires ending NULL.
+static const char *mnewton_argnames[] = {
+  "fun", "x0", "args", "jac", "hess", "gtol",
+  "maxiter", "alpha", "beta", "gamma", NULL
+};
+/**
+ * mnewton arguments to be specifically dropped from kwargs before calling
+ * PyArg_ParseTupleAndKeywords; these are scipy.optimize.minimize arguments.
+ * see lines 596-602 in _minimize.py in scipy.optimize.
+ */
+static const char *mnewton_scipy_argnames[] = {
+  "bounds", "constraints", "callback"
+};
 /**
  * Newton's method with Hessian modification.
  * 
@@ -52,12 +251,133 @@ PyDoc_STRVAR(
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` positional args tuple
  * @param kwargs `PyObject *` keyword args dict
- * @returns `scipy.optimize.OptimizeResult`
+ * @returns `scipy.optimize.OptimizeResult` on success, `NULL` with exception
+ *     set on error, whether it be Python or CBLAS/LAPACKE.
  */
 static PyObject *
 mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-  Py_RETURN_NONE;
+  // PyObject * for fun, jac, hess (must be callable), and tuple args
+  PyObject *fun, *fun_args, *jac, *hess;
+  fun = fun_args = jac = hess = NULL;
+  // PyArrayObject * for the current parameter guess, function, gradient, and
+  // [approximate] Hessian values. will be returned in OptimizeResult.
+  PyArrayObject *x, *fun_x, *jac_x, *hess_x;
+  x = fun_x = jac_x = hess_x = NULL;
+  /**
+   * number of solver iterations, number of objective evaluations, number of
+   * gradient evaluations, number of hessian evaluations (includes number of
+   * Cholesky decompositions performed during modificaton)
+   */
+  Py_ssize_t n_iter, n_fev, n_jev, n_hev;
+  n_iter = n_fev = n_jev = n_hev = 0;
+  // gradient tolerance, max iterations, alpha, beta, gamma
+  double gtol = 1e-4;
+  Py_ssize_t maxiter = 1000;
+  double alpha = 0.5;
+  double beta = 1e-3;
+  double gamma = 0.8;
+  /**
+   * scipy.optimize.minimize requires that custom minimizers accept the
+   * arguments fun, args (fun_args), jac, hess, hessp, bounds, constraints,
+   * callback, as well as keyword arguments taken by the custom minimizer. this
+   * function doesn't use bounds, constraints, callback, so we need to remove
+   * them since only fun, x0 are allowed to be positional. any other unwanted
+   * keyword arguments will also be dropped with warnings. technically mnewton
+   * should not restrict the named arguments to be keyword-only, the way it
+   * will be called allows us to do this. see lines 596-602 of
+   * https://github.com/scipy/scipy/blob/master/scipy/optimize/_minimize.py
+   */
+  // get size of kwargs, i.e. number of key-value pairs. kwargs can be NULL.
+  Py_ssize_t kwargs_size = (kwargs == NULL) ? 0 : PyDict_Size(kwargs);
+  // we don't need to remove any names if size is 0
+  if (kwargs_size > 0) {
+    // remove bounds, constraints, callback from kwargs silently if present.
+    // -1 on error, in which case we just return NULL (no new refs)
+    if (remove_specified_kwargs(kwargs, mnewton_scipy_argnames, 0) < 0) {
+      return NULL;
+    }
+    // remove any other unwanted kwargs if present but with warnings. -1 on
+    // error, no new refs so again just return NULL
+    if (remove_unspecified_kwargs(kwargs, mnewton_argnames, 1) < 0) {
+      return NULL;
+    }
+  }
+  // call PyArg_ParseTupleAndKeywords to parse arguments. no new refs yet.
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OO|$O!OOdnddd", (char **) mnewton_argnames,
+      &fun, &x, &PyTuple_Type, &fun_args, &jac, &hess,
+      &gtol, &maxiter, &alpha, &beta, &gamma
+    )
+  ) {
+    return NULL;
+  }
+  // check arguments manually. first, fun must be callable
+  if (!PyCallable_Check(fun)) {
+    PyErr_SetString(PyExc_TypeError, "fun must be callable");
+    return NULL;
+  }
+  // now we try to convert x to NPY_DOUBLE array with NPY_ARRAY_CARRAY flags.
+  // the new array is enforced to be a copy of the original. NULL on error
+  PyArrayObject *temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
+  );
+  if (temp_ar == NULL) {
+    return NULL;
+  }
+  // on success, overwrite x with temp_ar (original ref borrowed, no Py_DECREF)
+  x = temp_ar;
+  // x0 must not be empty and must have shape (n_features,)
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x0 must be nonempty");
+    goto except_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x0 must have shape (n_features,)");
+    goto except_x;
+  }
+  // jac must be either callable or Py_True
+  if (!PyCallable_Check(jac) && jac != Py_True) {
+    PyErr_SetString(PyExc_TypeError, "jac must be callable or True");
+    goto except_x;
+  }
+  // hess needs to be callable
+  if (!PyCallable_Check(hess)) {
+    PyErr_SetString(PyExc_TypeError, "hess must be provided and be callable");
+    goto except_x;
+  }
+  // gtol, maxiter, beta must be positive
+  if (gtol <= 0) {
+    PyErr_SetString(PyExc_ValueError, "gtol must be positive");
+    goto except_x;
+  }
+  if (maxiter < 1) {
+    PyErr_SetString(PyExc_ValueError, "maxiter must be positive");
+    goto except_x;
+  }
+  if (beta <= 0) {
+    PyErr_SetString(PyExc_ValueError, "beta must be positive");
+    goto except_x;
+  }
+  // alpha and gamma must be in (0, 1)
+  if (alpha <= 0 || alpha >= 1) {
+    PyErr_SetString(PyExc_ValueError, "alpha must be in (0, 1)");
+    goto except_x;
+  }
+  if (gamma <= 0 || gamma >= 1) {
+    PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
+    goto except_x;
+  }
+
+  // TODO: begin writing optimization algorithm
+
+  // TODO: clean up and return OptimizeResult
+  return (PyObject *) x;
+// clean up on error
+except_x:
+  Py_XDECREF(x);
+  return NULL;
 }
 
 /**
