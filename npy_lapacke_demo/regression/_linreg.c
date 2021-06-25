@@ -120,7 +120,7 @@ PyDoc_STRVAR(
   "\n--\n\n"
   EXPOSE_INTERNAL_NOTICE
   "\n\n"
-  "Python-accessible wrapper for internal function `npy_vector_matrix_mean`."
+  "Python-accessible wrapper for internal function ``npy_vector_matrix_mean``."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -266,7 +266,7 @@ PyDoc_STRVAR(
   "\n--\n\n"
   EXPOSE_INTERNAL_NOTICE
   "\n\n"
-  "Python-accessible wrapper for internal function `compute_intercept`."
+  "Python-accessible wrapper for internal function ``compute_intercept``."
   "\n\n"
   "Parameters\n"
   "----------\n"
