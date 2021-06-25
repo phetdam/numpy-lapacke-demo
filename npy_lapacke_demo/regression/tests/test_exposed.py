@@ -13,7 +13,7 @@ import pytest
 from .. import _linreg
 
 # skip all module tests if _linreg not built with -DEXTERNAL_EXPOSE. pytestmark
-# applied mark to all tests in module, skip_internal_exposed a custom mark.
+# applies mark to all tests in module, skip_internal_exposed a custom mark.
 pytestmark = pytest.mark.skip_internal_exposed(_linreg)
 
 

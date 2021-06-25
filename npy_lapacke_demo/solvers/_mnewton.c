@@ -1,5 +1,6 @@
 /**
  * @file _mnewton.c
+ * @author Derek Huang <djh458@stern.nyu.edu>
  * @brief C implementation of Newton's method with Hessian modification.
  * 
  * The modified Hessian is the original Hessian with an added multiple of the
@@ -74,7 +75,7 @@ remove_specified_kwargs(PyObject *kwargs, const char **droplist, int warn)
       // returns -1 if exception is raised on warning, so we have to clean up
       if (
         PyErr_WarnFormat(
-          PyExc_RuntimeWarning, 1, "key %s not in kwargs", droplist[i]
+          PyExc_UserWarning, 1, "key %s not in kwargs", droplist[i]
         ) < 0
       ) {
         goto except_key;
@@ -91,6 +92,136 @@ except_key:
   Py_DECREF(key);
   return -1;
 }
+
+/**
+ * wrapper code for remove_specified_kwargs that lets us test it from Python.
+ * __INTELLISENSE__ always defined in VS Code, so the defined(__INTELLISENSE__)
+ * lets Intellisense work on the code here in VS Code.
+ */
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+// docstring for EXPOSED_remove_specified_kwargs
+PyDoc_STRVAR(
+  EXPOSED_remove_specified_kwargs_doc,
+  "EXPOSED_remove_specified_kwargs(kwargs, droplist, warn=True)"
+  "\n--\n\n"
+  EXPOSE_INTERNAL_NOTICE
+  "\n\n"
+  "Python-accessible wrapper for internal function ``remove_specified_kwargs``."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "kwargs : dict\n"
+  "    :class:`dict` containing :class:`str` keys only, representing the\n"
+  "    kwargs dict often unpacked to provide named arguments to functions.\n"
+  "droplist : list\n"
+  "    List of strings indicating which names in ``kwargs`` to drop\n"
+  "warn : bool, default=True\n"
+  "    ``True`` to warn if a name in ``droplist`` is not in ``kwargs``,\n"
+  "    ``False`` to not warn if a name in ``droplist`` is not in ``kwargs``."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "int\n"
+  "    The number of names in ``droplist`` dropped from ``kwargs``."
+);
+// argument names known to EXPOSED_remove_specified_kwargs
+static const char *EXPOSED_remove_specified_kwargs_argnames[] = {
+  "kwargs", "droplist", "warn"
+};
+/**
+ * Python-accessible wrapper for `remove_specified_kwargs`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
+ * @returns New reference to `Py_None` on success, `NULL` on failure.
+ */
+static PyObject *
+EXPOSED_remove_specified_kwargs(
+  PyObject *self,
+  PyObject *args, PyObject *kwargs
+)
+{
+  // kwargs dict, droplist
+  PyObject *kwdict, *py_droplist;
+  kwdict = py_droplist = NULL;
+  // whether to warn or not
+  int warn = 1;
+  // parse arguments
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "O!O!p",
+      (char **) EXPOSED_remove_specified_kwargs_argnames,
+      &PyDict_Type, &kwdict, &PyList_Type, &py_droplist, &warn
+    )
+  ) {
+    return NULL;
+  }
+  // get length of dict. remove_specified_kwargs works with empty dicts.
+  Py_ssize_t n_kwds = PyDict_Size(kwdict);
+  // get keys of kwdict if dict is not empty
+  PyObject *keys;
+  // if there are keys in the dictionary, we have to check them
+  if (n_kwds > 0) {
+    keys = PyDict_Keys(kwdict);
+    if (keys == NULL) {
+      return NULL;
+    }
+    // for each item in the list of keys
+    for (Py_ssize_t i = 0; i < n_kwds; i++) {
+      // if ith item is not a PyUnicode (exact), error
+      if (!PyUnicode_CheckExact(PyList_GET_ITEM(keys, i))) {
+        Py_DECREF(keys);
+        return NULL;
+      }
+    }
+    // if all keys are string keys, done; don't need new reference
+    Py_DECREF(keys);
+  }
+  // number of elements in py_droplist (no need to error check)
+  Py_ssize_t n_drop = PyList_GET_SIZE(py_droplist);
+  // if empty, raise error
+  if (n_drop == 0) {
+    PyErr_SetString(PyExc_ValueError, "droplist must be nonempty");
+    return NULL;
+  }
+  // check that all elements of py_droplist are string as well
+  for (Py_ssize_t i = 0; i < n_drop; i++) {
+    if (!PyUnicode_CheckExact(PyList_GET_ITEM(py_droplist, i))) {
+      return NULL;
+    }
+  }
+  // create array of strings from py_droplist. +1 for ending NULL
+  const char **droplist = (const char **) PyMem_RawMalloc(
+    (size_t) (n_drop + 1) * sizeof(char **)
+  );
+  if (droplist == NULL) {
+    return NULL;
+  }
+  // set the last member to NULL and populate const char * in droplist
+  droplist[n_drop] = NULL;
+  for (Py_ssize_t i = 0; i < n_drop; i++) {
+    droplist[i] = PyUnicode_AsUTF8(PyList_GET_ITEM(py_droplist, i));
+    // droplist[i] is NULL on error, so we have to clean up droplist
+    if (droplist[i] == NULL) {
+      goto except;
+    }
+  }
+  // pass kwdict, droplist, warn to remove_specified_kwargs and save the number
+  // of keys dropped. drops will be -1 on error.
+  Py_ssize_t drops = remove_specified_kwargs(kwdict, droplist, warn);
+  if (drops < 0) {
+    goto except;
+  }
+  // clean up droplist and return PyLong from drops (NULL on error)
+  PyMem_RawFree(droplist);
+  return PyLong_FromSsize_t(drops);
+// clean up on error
+except:
+  PyMem_RawFree(droplist);
+  return NULL;
+}
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
 
 /**
  * Remove all keys from a kwargs dict except for a select subset of names.
@@ -482,6 +613,11 @@ static PyMethodDef _mnewton_methods[] = {
 // make EXPOSED_* methods accessible if EXPOSE_INTERNAL defined.
 // __INTELLISENSE__ always defined in VS Code; allows Intellisense to work.
 #if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+  {
+    "EXPOSED_remove_specified_kwargs",
+    (PyCFunction) EXPOSED_remove_specified_kwargs,
+    METH_VARARGS | METH_KEYWORDS, EXPOSED_remove_specified_kwargs_doc
+  },
 #endif /* EXPOSE_INTERNAL */
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
