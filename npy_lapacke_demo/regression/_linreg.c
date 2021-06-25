@@ -1,5 +1,6 @@
 /**
  * @file _linreg.c
+ * @author Derek Huang <djh458@stern.nyu.edu>
  * @brief C implementation of OLS linear regression solved by QR or SVD.
  * 
  * Directly calls into LAPACKE routines dgelsy, dgelss to solve.
