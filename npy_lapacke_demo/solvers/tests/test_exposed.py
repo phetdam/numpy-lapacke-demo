@@ -18,7 +18,7 @@ from .. import _mnewton
 pytestmark = pytest.mark.skip_internal_exposed(_mnewton)
 
 
-# use filterwarnings mark to turn warnings into errors if warn=False
+# use filterwarnings mark to turn warnings into test failure if warn=False
 @pytest.mark.filterwarnings("error:.+not in kwargs$:UserWarning")
 @pytest.mark.parametrize("warn", [True, False])
 def test_remove_specified_kwargs_empty(empty_kwargs, warn):
