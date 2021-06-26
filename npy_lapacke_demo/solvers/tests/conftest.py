@@ -107,7 +107,7 @@ def qp_noargs(global_seed, request):
     hess += 1e-4 * np.eye(n_features)
     # use spectral condition number of hess for range of uniform linear terms
     cond = np.linalg.cond(hess)
-    a = cond * (-1 + 2 * rng.uniform(n_features))
+    a = cond * (-1 + 2 * rng.random(n_features))
     # define objective, gradient. depends on request.param
     if request.param == "together":
         f_obj = lambda x: (0.5 * x @ hess @ x + a @ x, hess @ x + a)

@@ -127,7 +127,7 @@ remove_unspecified_kwargs(PyObject *kwargs, const char **keeplist, int warn)
   PyObject *kwargs_key_i, *keep_key_j;
   // for each key in kwargs_keys
   for (Py_ssize_t i = 0; i < n_keys; i++) {
-    // get reference to the key (no checking)
+    // get reference to the key (no checking). borrowed, so no Py_DECREF
     kwargs_key_i = PyList_GET_ITEM(kwargs_keys, i);
     // for each name in keeplist (indexed by j)
     Py_ssize_t j = 0;
@@ -179,15 +179,13 @@ remove_unspecified_kwargs(PyObject *kwargs, const char **keeplist, int warn)
       // on success, increment drops
       drops++;
     }
-    // clean up kwargs_key_i
-    Py_DECREF(kwargs_key_i);
+    // don't Py_DECREF kwargs_key_i since it is borrowed!
   }
   // after dropping keys not in keeplist, clean up + return drops
   Py_DECREF(kwargs_keys);
   return drops;
 // clean up before returning error
 except:
-  Py_DECREF(kwargs_key_i);
   Py_DECREF(kwargs_keys);
   return -1;
 }
