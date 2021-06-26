@@ -46,3 +46,33 @@ def test_remove_specified_kwargs_empty(empty_kwargs, warn):
         drops = test_callable()
     # no keys should be dropped from empty_kwargs since it is empty
     assert drops == 0
+
+
+# use filterwarnings mark to turn warnings into test failure if warn=False
+@pytest.mark.filterwarnings("error:.+not in kwargs$:UserWarning")
+@pytest.mark.parametrize("warn", [True, False])
+def test_remove_specified_kwargs_full(full_kwargs, warn):
+    """Test the internal remove_specified_kwargs function on full kwargs.
+
+    Parameters
+    ----------
+    full_kwargs : tuple
+        pytest fixture. See local conftest.py.
+    warn : bool
+        ``True`` to warn if a specified string key not in kwargs, else silence.
+    """
+    # get kwargs dict and list of keys to drop
+    kwargs, droplist = full_kwargs
+    # callable with kwargs, droplist, warn already filled in
+    test_callable = partial(
+        _mnewton.EXPOSED_remove_specified_kwargs, kwargs, droplist, warn=warn
+    )
+    # if warn, expect warnings to be raised. save number of dropped keys.
+    if warn:
+        with pytest.warns(UserWarning, match="not in kwargs"):
+            drops = test_callable()
+    # else expect no warnings to be raised. raised warnings fail the test
+    else:
+        drops = test_callable()
+    # 3 of the keys should be dropped from full_kwargs since it is empty
+    assert drops == 3
