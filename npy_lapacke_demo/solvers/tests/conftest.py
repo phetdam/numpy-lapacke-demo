@@ -3,10 +3,12 @@ __doc__ = """pytest test fixtures for solvers.tests subpackage.
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
 
+import numpy as np
 import pytest
+from sklearn.datasets import make_spd_matrix
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def kwargs_keylist():
     """A list of strings to drop/keep in a kwargs dict.
 
@@ -63,3 +65,56 @@ def full_kwargs(kwargs_keylist):
         drop3="be here", drop4="tooku no kage", drop5="ao no senaka"
     )
     return kwargs, kwargs_keylist
+
+
+@pytest.fixture(scope="session", params=["separate", "together"])
+def qp_noargs(global_seed, request):
+    """An unconstrained convex quadratic problem to minimize using mnewton.
+
+    Objective, gradient, and Hessian do not take any arguments.
+
+    All tests depending on this fixture are run twice, first with separate
+    objective and gradient, next with an objective that returns (loss, grad)
+    together, where the gradient is simply True. Initial parameter guess is 0.
+
+    Parameters
+    ----------
+    global_seed : int
+        pytest fixture. See top-level package conftest.py.
+    request
+
+    Returns
+    -------
+    function
+        The objective to minimize. If request.param == "separate", returns a
+        scalar objective value, while if request.param == "together", returns
+        (loss, grad). A convex, quadratic function of 5 variables.
+    numpy.ndarray
+        The initial parameter guess, essentially numpy.zeros(5)
+    function or bool
+        The gradient of the objective. If request.param == "separate", returns
+        a numpy.ndarray shape (5,), while if request.param == "together", is
+        not a callable and simply set to True.
+    function
+        The Hessian of the objective, returning numpy.ndarray shape (5, 5).
+    """
+    # low-dimensionality problem
+    n_features = 5
+    # PRNG to compute linear terms in gradient with
+    rng = np.random.default_rng(global_seed)
+    # compute hessian, guaranteed to be positive definite
+    hess = make_spd_matrix(n_features, random_state=global_seed)
+    hess += 1e-4 * np.eye(n_features)
+    # use spectral condition number of hess for range of uniform linear terms
+    cond = np.linalg.cond(hess)
+    a = cond * (-1 + 2 * rng.uniform(n_features))
+    # define objective, gradient. depends on request.param
+    if request.param == "separate":
+        f_obj = lambda x: (0.5 * x @ hess @ x + a @ x, hess @ x + a)
+        f_grad = True
+    else:
+        f_obj = lambda x: 0.5 * x @ hess @ x + a @ x
+        f_grad = lambda x: hess @ x + a
+    # define hessian + return f_obj, initial guess, f_grad, f_hess
+    f_hess = lambda x: hess
+    return f_obj, np.zeros(n_features), f_grad, f_hess
