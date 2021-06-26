@@ -17,9 +17,13 @@ from .. import _mnewton
 # applies mark to all tests in module, skip_internal_exposed a custom mark.
 pytestmark = pytest.mark.skip_internal_exposed(_mnewton)
 
+# patterns to match for warnings issued by remove_[un]specified_kwargs
+_specified_match = ".+not in kwargs$"
+_unspecified_match = ".+removed from kwargs$"
+
 
 # use filterwarnings mark to turn warnings into test failure if warn=False
-@pytest.mark.filterwarnings("error:.+not in kwargs$:UserWarning")
+@pytest.mark.filterwarnings(f"error:{_specified_match}:UserWarning")
 @pytest.mark.parametrize("warn", [True, False])
 def test_remove_specified_kwargs_empty(empty_kwargs, warn):
     """Test the internal remove_specified_kwargs function on empty kwargs.
@@ -39,7 +43,7 @@ def test_remove_specified_kwargs_empty(empty_kwargs, warn):
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
-        with pytest.warns(UserWarning, match="not in kwargs"):
+        with pytest.warns(UserWarning, match=_specified_match):
             drops = test_callable()
     # else expect no warnings to be raised. raised warnings fail the test
     else:
@@ -49,7 +53,7 @@ def test_remove_specified_kwargs_empty(empty_kwargs, warn):
 
 
 # use filterwarnings mark to turn warnings into test failure if warn=False
-@pytest.mark.filterwarnings("error:.+not in kwargs$:UserWarning")
+@pytest.mark.filterwarnings(f"error:{_specified_match}:UserWarning")
 @pytest.mark.parametrize("warn", [True, False])
 def test_remove_specified_kwargs_full(full_kwargs, warn):
     """Test the internal remove_specified_kwargs function on full kwargs.
@@ -69,10 +73,63 @@ def test_remove_specified_kwargs_full(full_kwargs, warn):
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
-        with pytest.warns(UserWarning, match="not in kwargs"):
+        with pytest.warns(UserWarning, match=_specified_match):
             drops = test_callable()
     # else expect no warnings to be raised. raised warnings fail the test
     else:
         drops = test_callable()
-    # 3 of the keys should be dropped from full_kwargs since it is empty
+    # 3 of the keys should be dropped from full_kwargs
     assert drops == 3
+
+
+# use filterwarnings mark to turn any warnings into test failure
+@pytest.mark.filterwarnings(f"error:{_unspecified_match}:UserWarning")
+@pytest.mark.parametrize("warn", [True, False])
+def test_remove_unspecified_kwargs_empty(empty_kwargs, warn):
+    """Test the internal remove_unspecified_kwargs function on empty kwargs.
+
+    Parameters
+    ----------
+    empty_kwargs : tuple
+        pytest fixture. See local conftest.py.
+    warn : bool
+        ``True`` to warn if a specified string key not in kwargs, else silence.
+    """
+    # get kwargs dict and list of keys to keep
+    kwargs, keeplist = empty_kwargs
+    # callable with kwargs, droplist, warn already filled in
+    test_callable = partial(
+        _mnewton.EXPOSED_remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+    )
+    # for empty kwargs, no warnings should ever be raised + no keys dropped
+    assert test_callable() == 0
+
+
+# use filterwarnings mark to turn warnings into test failure if warn=False
+@pytest.mark.filterwarnings(f"error:{_unspecified_match}:UserWarning")
+@pytest.mark.parametrize("warn", [True, False])
+def test_remove_unspecified_kwargs_full(full_kwargs, warn):
+    """Test the internal remove_unspecified_kwargs function on full kwargs.
+
+    Parameters
+    ----------
+    full_kwargs : tuple
+        pytest fixture. See local conftest.py.
+    warn : bool
+        ``True`` to warn if a specified string key not in kwargs, else silence.
+    """
+    # get kwargs dict and list of keys to keep
+    kwargs, keeplist = full_kwargs
+    # callable with kwargs, droplist, warn already filled in
+    test_callable = partial(
+        _mnewton.EXPOSED_remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+    )
+    # if warn, expect warnings to be raised. save number of dropped keys.
+    if warn:
+        with pytest.warns(UserWarning, match=_unspecified_match):
+            drops = test_callable()
+    # else expect no warnings to be raised. raised warnings fail the test
+    else:
+        drops = test_callable()
+    # 5 of the keys should be dropped from full_kwargs
+    assert drops == 5
