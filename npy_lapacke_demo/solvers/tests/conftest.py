@@ -109,7 +109,7 @@ def qp_noargs(global_seed, request):
     cond = np.linalg.cond(hess)
     a = cond * (-1 + 2 * rng.uniform(n_features))
     # define objective, gradient. depends on request.param
-    if request.param == "separate":
+    if request.param == "together":
         f_obj = lambda x: (0.5 * x @ hess @ x + a @ x, hess @ x + a)
         f_grad = True
     else:
