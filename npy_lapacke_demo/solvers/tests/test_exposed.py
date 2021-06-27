@@ -135,9 +135,10 @@ def test_remove_unspecified_kwargs_full(full_kwargs, warn):
     assert drops == 5
 
 
+@pytest.mark.parametrize("fortran", [False, True])
 @pytest.mark.parametrize("shape", [(0,), (5, 6, 2, 4)])
-def test_npy_frob_norm_ccont(global_seed, shape):
-    """Test the interal npy_frob_norm function on row-major ndarray.
+def test_npy_frob_norm(global_seed, shape, fortran):
+    """Test the interal npy_frob_norm function on different NumPy arrays.
 
     Parameters
     ----------
@@ -145,11 +146,18 @@ def test_npy_frob_norm_ccont(global_seed, shape):
         pytest fixture. See top-level package conftest.py.
     shape : tuple
         Shape of the ndarray to send to npy_frob_norm.
+    fortran : bool
+        True for column-major ordering, False for row-major, i.e. C ordering.
     """
     # PRNG to use
     rng = np.random.default_rng(global_seed)
-    # compute random high-dimensional ndarray using shape
-    ar = rng.random(size=shape)
+    # compute random high-dimensional ndarray using shape. if fortran, then
+    # store in a column-major format, i.e. Fortran-style.
+    if fortran:
+        ar = np.empty(shape=shape, order="F")
+        rng.random(size=shape, out=ar)
+    else:
+        ar = rng.random(size=shape)
     # check that npy_frob_norm has same result as np.linalg.norm. results
     # should be exactly identical, so we don't use assert_allclose
     assert _mnewton.EXPOSED_npy_frob_norm(ar) == np.linalg.norm(ar)
