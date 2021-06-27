@@ -12,6 +12,7 @@
 #include <Python.h>
 
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -412,6 +413,233 @@ EXPOSED_remove_unspecified_kwargs(
 }
 #endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
 
+/**
+ * Computes the Frobenius norm of a NumPy array.
+ * 
+ * Input array must be `NPY_DOUBLE`, `NPY_ARRAY_ALIGNED` flags. Can be empty.
+ * 
+ * @param ar `PyArrayObject *` ndarray. Must have required flags.
+ * @returns `double` Frobenius norm of the NumPy array
+ */
+static double
+npy_frob_norm(PyArrayObject *ar)
+{
+  // get size of array. if empty, return 0
+  npy_intp ar_size = PyArray_SIZE(ar);
+  // if empty, return 0
+  if (ar_size == 0) {
+    return 0;
+  }
+  // else get data pointer and compute norm
+  double *ar_data = (double *) PyArray_DATA(ar);
+  double ar_norm = 0;
+  for (npy_intp i = 0; i < ar_size; i++) {
+    ar_norm += ar_data[i] * ar_data[i];
+  }
+  return sqrt(ar_norm);
+}
+
+// wrapper code for npy_frob_norm to test from Python. __INTELLISENSE__ always
+// defined in VS Code so defined(__INTELLISENSE__) lets Intellisense work here.
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+// docstring for EXPOSED_npy_frob_norm
+PyDoc_STRVAR(
+  EXPOSED_npy_frob_norm_doc,
+  "EXPOSED_npy_frob_norm(ar)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal functon ``npy_frob_norm``."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "ar : numpy.ndarray\n"
+  "    NumPy array with flags ``NPY_ARRAY_ALIGNED``, type ``NPY_DOUBLE``, or\n"
+  "    at least any object that can be converted to such a NumPy array."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float\n"
+  "    Frobenius norm of the NumPy array."
+);
+/**
+ * Python-accessible wrapper for internal function `npy_frob_norm`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param arg `PyObject *` single positional arg
+ * @returns New reference to `PyFloatObject` giving the norm of the NumPy
+ *     array on success, `NULL` with set exception on failure.
+ */
+static PyObject *
+EXPOSED_npy_frob_norm(PyObject *self, PyObject *arg)
+{
+  // convert arg to ndarray with NPY_DOUBLE type and NPY_ARRAY_ALIGNED flags
+  PyArrayObject *ar;
+  ar = (PyArrayObject *) PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_ALIGNED);
+  if (ar == NULL) {
+    return NULL;
+  }
+  // return PyFloatObject * from npy_frob_norm, NULL on error
+  return (PyObject *) PyFloat_FromDouble(npy_frob_norm(ar));
+}
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
+
+/**
+ * Utility function for computing objective and gradient values with args.
+ * 
+ * The return values of the objective `fun` and gradient function `jac` are
+ * checked to ensure that they are appropriate, i.e. that `fun` returns a
+ * `PyFloatObject *` and that `jac` (if callable) has output that can be
+ * converted to a `NPY_DOUBLE` ndarray, flags `NPY_ARRAY_IN_ARRAY`, with shape
+ * `(n_features,)` to match the shape of the current parameter guess.
+ * 
+ * @param fun `PyObject *` to a callable, the objective function. Should have
+ *     signature `fun(x, *args[1:])` and return a scalar.
+ * @param jac `PyObject *` to a callable, the gradient function. Should have
+ *     signature `jac(x, *args[1:])` and return a flat vector `(n_features,)`.
+ *     May also be `True`, in which case `fun` is expected to return
+ *     `(loss, grad)`, `loss` a scalar, `grad` shape `(n_features,)`.
+ * @param args `PyTupleObject *` giving the arguments to pass to `fun` and
+ *     `jac` (if callable), where the first argument must point to the current
+ *     parameter guess, shape `(n_features,)`.
+ * @returns New `PyTupleObject *` where the first element points to the
+ *     objective value as a `PyFloatObject *` and the second element points to
+ *     the gradient value as a `PyArrayObject *` shape `(n_features,)`. On
+ *     error, `NULL` is returned, and an exception set.
+ */
+static PyTupleObject *
+compute_loss_grad(PyObject *fun, PyObject *jac, PyTupleObject *args)
+{
+  // function value and temp variables for the return values of fun, jac
+  PyObject *fun_x, *temp_f, *temp_g;
+  // gradient value
+  PyArrayObject *jac_x;
+  // compute initial loss and gradient. if jac is Py_True, call fun instead.
+  if (jac == Py_True) {
+    temp_f = PyObject_CallObject(fun, (PyObject*) args);
+    // clean up on error, i.e. temp_f == NULL
+    if (temp_f == NULL) {
+      return NULL;
+    }
+    // try to get loss from first index of temp_f, which may not be a tuple.
+    // Py_XINCREF it so on failure, no-op, while on success, we own a ref.
+    fun_x = PyTuple_GetItem(temp_f, 0);
+    Py_XINCREF(fun_x);
+    /**
+     * try to get gradient from second index of temp_f (tuple). Py_XINCREF it
+     * so on failure, no-op, while on success, we own a reference. don't need
+     * temp_f any more, so just Py_DECREF it.
+     */
+    temp_g = PyTuple_GetItem(temp_f, 1);
+    Py_XINCREF(temp_g);
+    Py_DECREF(temp_f);
+  }
+  // else call fun and jac separately to compute fun_x, jac_x
+  else {
+    fun_x = PyObject_CallObject(fun, (PyObject *) args);
+    temp_g = PyObject_CallObject(jac, (PyObject *) args);
+  }
+  // if fun_x NULL, error. temp_g may be NULL or a new reference so XDECREF it
+  if (fun_x == NULL) {
+    Py_XDECREF(temp_g);
+    return NULL;
+  }
+  // if temp_g NULL, error. fun_x may be NULL or a new reference so XDECREF it
+  if (temp_g == NULL) {
+    Py_XDECREF(fun_x);
+    return NULL;
+  }
+  // check that fun_x is a [subtype] of PyFloatObject. if not, error. must also
+  // Py_DECREF temp_g, which is a new reference
+  if (!PyFloat_Check(fun_x)) {
+    PyErr_SetString(PyExc_TypeError, "fun must return a float");
+    Py_DECREF(temp_g);
+    goto except_fun_x;
+  }
+  // convert temp_g to ndarray with type NPY_DOUBLE, NPY_ARRAY_INARRAY (no
+  // need to be writeable). may create data copy. Py_DECREF unneeded temp_g.
+  jac_x = (PyArrayObject *) PyArray_FROM_OTF(
+    temp_g, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  Py_DECREF(temp_g);
+  // jac_x NULL if error as usual + clean up fun_x as well
+  if (jac_x == NULL) {
+    goto except_fun_x;
+  }
+  // else success. check that jac_x, x have same shape, where x is the first
+  // element of args. if shape is different, error
+  if (!PyArray_SAMESHAPE((PyArrayObject *) PyTuple_GET_ITEM(args, 0), jac_x)) {
+    PyErr_SetString(PyExc_ValueError, "gradient must have shape (n_features,)");
+    goto except_jac_x;
+  }
+  // create new tuple to hold fun_x, jac_x. no Py_DECREF as refs are stolen
+  PyTupleObject *res = (PyTupleObject *) PyTuple_New(2);
+  PyTuple_SET_ITEM(res, 0, fun_x);
+  PyTuple_SET_ITEM(res, 1, (PyObject *) jac_x);
+  return res;
+// clean up when handling error
+except_jac_x:
+  Py_DECREF(jac_x);
+except_fun_x:
+  Py_DECREF(fun_x);
+  return NULL;
+}
+
+/**
+ * Utility function for computing Hessian with args.
+ * 
+ * The return values of the Hessian function `hess` is checked to ensure that
+ * it is appropriate, i.e. that `hess` has output that can be converted to a
+ * `NPY_DOUBLE` ndarray, flags `NPY_ARRAY_IN_ARRAY`, with shape
+ * `(n_features, n_features)`. Current parameter has shape `(n_features,)`.
+ * 
+ * @param hess `PyObject *` to a callable, the Hessian function. Should have
+ *     signature `hess(x, *args[1:])` and return output convertible to a
+ *     ndarray shape `(n_features, n_features)`.
+ * @param args `PyTupleObject *` giving the arguments to pass to `hess`, also
+ *     passed to `fun`, `jac` in `compute_loss_grad`. The first argument must
+ *     point to the current parameter guess, shape `(n_features,)`.
+ * @returns New `PyArrayObject *` shape `(n_features, n_features)` giving the
+ *     Hessian, type `NPY_DOUBLE`, flags `NPY_ARRAY_IN_ARRAY`. On error, `NULL`
+ *     is returned, and an exception set.
+ */
+static PyArrayObject *
+compute_hessian(PyObject *hess, PyTupleObject *args)
+{
+  // hessian value and temp to hold function return values
+  PyArrayObject *hess_x;
+  PyObject *temp_f;
+  // call hess with the provided arguments. NULL on error
+  temp_f = PyObject_CallObject(hess, (PyObject *) args);
+  if (temp_f == NULL) {
+    return NULL;
+  }
+  // else convert to NPY_DOUBLE, flags NPY_ARRAY_IN_ARRAY. Py_DECREF temp_f.
+  hess_x = (PyArrayObject *) PyArray_FROM_OTF(
+    temp_f, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  Py_DECREF(temp_f);
+  // on error, hess_x NULL. nothing to clean so return NULL
+  if (hess_x == NULL) {
+    return NULL;
+  }
+  // get features from x, the first elements of args. note x ref is borrowed.
+  PyArrayObject *x = (PyArrayObject *) PyTuple_GET_ITEM(args, 0);
+  npy_intp n_features = PyArray_DIM(x, 0);
+  // check that hess_x has only 2 dimensions, each same as size of x, and also
+  // that hess_x has shape (n_features, n_features)
+  if (
+    PyArray_NDIM(hess_x) != 2 || PyArray_DIM(hess_x, 0) != n_features ||
+    PyArray_DIM(hess_x, 1) != n_features
+  ) {
+    PyErr_SetString(
+      PyExc_ValueError, "Hessian must have shape (n_features, n_features)"
+    );
+    Py_DECREF(hess_x);
+    return NULL;
+  }
+  // if shape of Hessian is correct, return
+  return hess_x;
+}
+
 // docstring for mnewton
 PyDoc_STRVAR(
   mnewton_doc,
@@ -478,13 +706,19 @@ static const char *mnewton_scipy_argnames[] = {
 static PyObject *
 mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-  // PyObject * for fun, jac, hess (must be callable), and tuple args
-  PyObject *fun, *fun_args, *jac, *hess;
-  fun = fun_args = jac = hess = NULL;
-  // PyArrayObject * for the current parameter guess, function, gradient, and
+  // PyObject * for fun, jac, hess (must be callable), and function value.
+  PyObject *fun, *jac, *hess, *fun_x;
+  fun = jac = hess = fun_x = NULL;
+  // PyArrayObject * for the current parameter guess, gradient, and
   // [approximate] Hessian values. will be returned in OptimizeResult.
-  PyArrayObject *x, *fun_x, *jac_x, *hess_x;
-  x = fun_x = jac_x = hess_x = NULL;
+  PyArrayObject *x, *jac_x, *hess_x;
+  x = jac_x = hess_x = NULL;
+  /**
+   * function arguments to pass to fun, jac, hess; originally corresponds to
+   * the args parameter in the Python signature but will be modified to point
+   * to a copy equivalent to (x, *args).
+   */
+  PyTupleObject *fun_args = NULL;
   /**
    * number of solver iterations, number of objective evaluations, number of
    * gradient evaluations, number of hessian evaluations (includes number of
@@ -528,7 +762,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   if (
     !PyArg_ParseTupleAndKeywords(
       args, kwargs, "OO|$O!OOdnddd", (char **) mnewton_argnames,
-      &fun, &x, &PyTuple_Type, &fun_args, &jac, &hess,
+      &fun, &x, &PyTuple_Type, (PyObject **) &fun_args, &jac, &hess,
       &gtol, &maxiter, &alpha, &beta, &gamma
     )
   ) {
@@ -590,14 +824,96 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
     goto except_x;
   }
+  // create new tuple using contents of fun_args where the first argument is
+  // the pointer to x. this makes calling fun, jac, hess much easier.
+  PyTupleObject *_fun_args = fun_args;
+  fun_args = (PyTupleObject *) PyTuple_New(1 + PyTuple_GET_SIZE(_fun_args));
+  // no need to Py_DECREF _fun_args since it is borrowed ref
+  if (fun_args == NULL) {
+    goto except_x;
+  }
+  // Py_INCREF x and set first index of fun_args. note reference is stolen.
+  Py_INCREF(x);
+  PyTuple_SET_ITEM(fun_args, 0, (PyObject *) x);
+  // fill fun_args with stolen Py_INCREF'd references from _fun_args
+  for (Py_ssize_t i = 1; i < PyTuple_GET_SIZE(fun_args); i++) {
+    PyObject *_fun_args_i = PyTuple_GET_ITEM(_fun_args, i - 1);
+    Py_INCREF(_fun_args_i);
+    PyTuple_SET_ITEM(fun_args, i, _fun_args_i);
+  }
+  // compute initial loss and gradient using compute_loss_grad. recall that the
+  // first element of fun_args is a reference to x.
+  PyTupleObject *temp_tp = compute_loss_grad(fun, jac, fun_args);
+  // if temp_tp is NULL, clean up
+  if (temp_tp == NULL) {
+    goto except_fun_args;
+  }
+  // on success, assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF
+  fun_x = PyTuple_GET_ITEM(temp_tp, 0);
+  jac_x = (PyArrayObject *) PyTuple_GET_ITEM(temp_tp, 1);
+  Py_INCREF(fun_x);
+  Py_INCREF(jac_x);
+  // increment n_fev, n_jev to count objective + gradient evals
+  n_fev++;
+  n_jev++;
+  // compute initial Hessian. NULL on error and clean up
+  hess_x = compute_hessian(hess, fun_args);
+  if (hess_x == NULL) {
+    goto except_fun_jac_x;
+  }
+  // if successful, increment n_hev to count Hessian evals
+  n_hev++;
+  // optimize while not converged, i.e. avg. gradient norm less than tolerance
+  while (npy_frob_norm(jac_x) < gtol) {
 
-  // TODO: begin writing optimization algorithm
+    // TODO: write actual optimization algorithm
 
-  // TODO: clean up and return OptimizeResult
+    // done with fun_x, jac_x, hess_x, so we compute next values of fun_x,
+    // jac_x, hess_x using updated x. can Py_DECREF all of these.
+    Py_DECREF(fun_x);
+    Py_DECREF(jac_x);
+    Py_DECREF(hess_x);
+    // compute next loss + gradient
+    temp_tp = compute_loss_grad(fun, jac, fun_args);
+    // clean up on error. note we already Py_DECREF fun_x, jac_x, hess_x
+    if (temp_tp == NULL) {
+      goto except_fun_args;
+    }
+    // else again assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF
+    fun_x = PyTuple_GET_ITEM(temp_tp, 0);
+    jac_x = (PyArrayObject *) PyTuple_GET_ITEM(temp_tp, 1);
+    Py_INCREF(fun_x);
+    Py_INCREF(jac_x);
+    // increment n_fev, n_jev to count objective + gradient evals
+    n_fev++;
+    n_jev++;
+    // compute next hessian. NULL on error
+    hess_x = compute_hessian(hess, fun_args);
+    if (hess_x == NULL) {
+      goto except_fun_jac_x;
+    }
+    // on success, increment n_hev, n_iter to count Hessian evals + iterations
+    n_hev++;
+    n_iter++;
+  }
+
+  // TODO: populate members of the OptimizeResult
+
+  // since PyObject_SetAttrString internally Py_INCREFs, clean up and return
+  Py_DECREF(hess_x);
+  Py_DECREF(jac_x);
+  Py_DECREF(fun_x);
+  Py_DECREF(fun_args);
+  //Py_DECREF(x);
   return (PyObject *) x;
 // clean up on error
+except_fun_jac_x:
+  Py_DECREF(jac_x);
+  Py_DECREF(fun_x);
+except_fun_args:
+  Py_DECREF(fun_args);
 except_x:
-  Py_XDECREF(x);
+  Py_DECREF(x);
   return NULL;
 }
 
@@ -712,6 +1028,11 @@ static PyMethodDef _mnewton_methods[] = {
     "EXPOSED_remove_unspecified_kwargs",
     (PyCFunction) EXPOSED_remove_unspecified_kwargs,
     METH_VARARGS | METH_KEYWORDS, EXPOSED_remove_unspecified_kwargs_doc
+  },
+  {
+    "EXPOSED_npy_frob_norm",
+    (PyCFunction) EXPOSED_npy_frob_norm,
+    METH_O, EXPOSED_npy_frob_norm_doc
   },
 #endif /* EXPOSE_INTERNAL */
   // sentinel marking end of array
