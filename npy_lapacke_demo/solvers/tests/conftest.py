@@ -68,7 +68,7 @@ def full_kwargs(kwargs_keylist):
 
 
 @pytest.fixture(scope="session", params=["separate", "together"])
-def qp_noargs(default_seed, default_rng, request):
+def qp_noargs(default_seed, request):
     """An unconstrained convex quadratic problem to minimize using mnewton.
 
     Objective, gradient, and Hessian do not take any arguments.
@@ -80,8 +80,6 @@ def qp_noargs(default_seed, default_rng, request):
     Parameters
     ----------
     default_seed : int
-        pytest fixture. See top-level package conftest.py.
-    default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     request : _pytest.fixtures.FixtureRequest
         Built-in pytest fixture. See the pytest documentation for details.
@@ -103,12 +101,15 @@ def qp_noargs(default_seed, default_rng, request):
     """
     # low-dimensionality problem
     n_features = 5
+    # PRNG used to generate the linear terms. can't use default_rng since this
+    # fixture is session scope, while default_rng is function scope.
+    rng = np.random.default_rng(default_seed)
     # compute hessian, guaranteed to be positive definite
     hess = make_spd_matrix(n_features, random_state=default_seed)
     hess += 1e-4 * np.eye(n_features)
     # use spectral condition number of hess for range of uniform linear terms
     cond = np.linalg.cond(hess)
-    a = cond * (-1 + 2 * default_rng.random(n_features))
+    a = cond * (-1 + 2 * rng.random(n_features))
     # define objective, gradient. depends on request.param
     if request.param == "together":
         f_obj = lambda x: (0.5 * x @ hess @ x + a @ x, hess @ x + a)

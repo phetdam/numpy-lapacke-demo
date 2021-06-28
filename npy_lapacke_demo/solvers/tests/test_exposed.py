@@ -156,9 +156,10 @@ def test_npy_frob_norm(default_rng, shape, fortran):
         default_rng.random(size=shape, out=ar)
     else:
         ar = default_rng.random(size=shape)
-    # check that npy_frob_norm has same result as np.linalg.norm. results
-    # should be exactly identical, so we don't use assert_allclose
-    assert _mnewton.EXPOSED_npy_frob_norm(ar) == np.linalg.norm(ar)
+    # check that npy_frob_norm has same result as np.linalg.norm
+    np.testing.assert_allclose(
+        _mnewton.EXPOSED_npy_frob_norm(ar), np.linalg.norm(ar)
+    )
 
 
 @pytest.mark.parametrize("with_optional", [True, False])
