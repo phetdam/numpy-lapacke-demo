@@ -1414,7 +1414,7 @@ static PyMethodDef _linreg_methods[] = {
     METH_VARARGS,
     EXPOSED_compute_intercept_doc
   },
-#endif /* EXPOSE_INTERNAL */
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
 };

@@ -1219,7 +1219,7 @@ static PyMethodDef _mnewton_methods[] = {
     (PyCFunction) EXPOSED_npy_frob_norm,
     METH_O, EXPOSED_npy_frob_norm_doc
   },
-#endif /* EXPOSE_INTERNAL */
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
 };
