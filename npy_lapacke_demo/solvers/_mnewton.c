@@ -483,7 +483,7 @@ EXPOSED_npy_frob_norm(PyObject *self, PyObject *arg)
 #endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
 
 /**
- * Utility function for computing objective and gradient values with args.
+ * Internal function for computing objective and gradient values with args.
  * 
  * The return values of the objective `fun` and gradient function `jac` are
  * checked to ensure that they are appropriate, i.e. that `fun` returns a
@@ -584,7 +584,7 @@ except_fun_x:
 }
 
 /**
- * Utility function for computing Hessian with args.
+ * Internal function for computing Hessian with args.
  * 
  * The return values of the Hessian function `hess` is checked to ensure that
  * it is appropriate, i.e. that `hess` has output that can be converted to a
@@ -638,6 +638,182 @@ compute_hessian(PyObject *hess, PyTupleObject *args)
   }
   // if shape of Hessian is correct, return
   return hess_x;
+}
+
+/**
+ * Internal function for populating a `scipy.optimize.OptimizeResult`.
+ * 
+ * All `PyArrayObject *` must have type `NPY_DOUBLE`, `NPY_ARRAY_CARRAY` flags.
+ * 
+ * @param x `PyArrayObject *` optimization result, shape `(n_features,)`.
+ * @param success `0` for failure, `!= 0` for optimization success.
+ * @param status Termination status. Set to `0` for normal exit, `1` on error.
+ * @param message `const char *` to message describing cause of termination.
+ * @param fun_x `PyObject *` final objective value, either `PyFloatObject *`
+ *     or a subclass that results in `PyFloat_Check` returning true.
+ * @param jac_x `PyArrayObject *` final gradient, shape `(n_features,)`. Can be
+ *     `NULL` to skip addition of the `jac` attribute to the `OptimizeResult`.
+ * @param hess_x `PyArrayObject *` final [approximate] Hessian, shape
+ *     `(n_features, n_features)`. Can be `NULL` to skip addition of the `hess`
+ *     attribute to the `OptimizeResult`.
+ * @param hess_inv `PyArrayObject *` final inverse [approximate] Hessian, shape
+ *     `(n_features, n_features)`. Can be `NULL` to skip addition of the
+ *     `hess_inv` attribute to the `OptimizeResult`.
+ * @param n_fev `Py_ssize_t` number of objective function evaluations
+ * @param n_jev `Py_ssize_t` number of gradient function evaluations
+ * @param n_hev `Py_ssize_t` number of Hessian function evaluations
+ * @param n_iter `Py_ssize_t` number of solver iterations
+ * @param maxcv `PyObject *` maximum constraint violation, either
+ *     `PyFloatObject *` or a subclass that results in `PyFloat_Check`
+ *     returning true. Can be `NULL` to skip addition of the `maxcv` attribute.
+ * @returns New `OptimizeResult` reference with populated attributes, `NULL`
+ *     on error with exception set as usual.
+ */
+static PyObject *
+populate_OptimizeResult(
+  PyArrayObject *x,
+  int success, int status, const char *message,
+  PyObject *fun_x,
+  PyArrayObject *jac_x, PyArrayObject *hess_x, PyArrayObject *hess_inv,
+  Py_ssize_t n_fev, Py_ssize_t n_jev, Py_ssize_t n_hev, Py_ssize_t n_iter,
+  PyObject *maxcv
+)
+{
+  // attempt to import scipy.optimize. NULL on error. if already imported, this
+  // is just a new reference to the module in sys.modules.
+  PyObject *opt_mod = PyImport_ImportModule("scipy.optimize");
+  if (opt_mod == NULL) {
+    return NULL;
+  }
+  // get the OptimizeResult class member from the module
+  PyObject *opt_class = PyObject_GetAttrString(opt_mod, "OptimizeResult");
+  if (opt_class == NULL) {
+    goto except_opt_mod;
+  }
+  // call OptimizeResult with no args to get an empty OptimizeResult
+  PyObject *opt_res = PyObject_CallObject(opt_class, NULL);
+  if (opt_res == NULL) {
+    goto except_opt_class;
+  }
+  // add x to instance. note Py_INCREF is done internally. -1 on error.
+  if (PyObject_SetAttrString(opt_res, "x", (PyObject *) x) < 0) {
+    goto except_opt_res;
+  }
+  // create PyLongObject * wrappers for success, status. NULL on error
+  PyObject *py_success = PyLong_FromLong(success);
+  if (py_success == NULL) {
+    goto except_opt_res;
+  }
+  PyObject *py_status = PyLong_FromLong(status);
+  if (py_status == NULL) {
+    goto except_py_success;
+  }
+  // create PyUnicodeObject * from message
+  PyObject *py_message = PyUnicode_FromString(message);
+  if (py_message == NULL) {
+    goto except_py_status;
+  }
+  // add py_success, py_status, py_message to instance. -1 on errors.
+  if (PyObject_SetAttrString(opt_res, "success", py_success) < 0) {
+    goto except_py_message;
+  }
+  if (PyObject_SetAttrString(opt_res, "status", py_status) < 0) {
+    goto except_py_message;
+  }
+  if (PyObject_SetAttrString(opt_res, "message", py_message) < 0) {
+    goto except_py_message;
+  }
+  // add fun_x, jac_x, hess_x, hess_inv to instance. jac_x, hess_x, hess_inv
+  // are allowed to be NULL, in which case they are not added. -1 on errors.
+  if (PyObject_SetAttrString(opt_res, "fun", fun_x) < 0) {
+    goto except_py_message;
+  }
+  if (
+    jac_x != NULL &&
+    PyObject_SetAttrString(opt_res, "jac", (PyObject *) jac_x) < 0
+  ) {
+    goto except_py_message;
+  }
+  if (
+    hess_x != NULL &&
+    PyObject_SetAttrString(opt_res, "hess", (PyObject *) hess_x) < 0
+  ) {
+    goto except_py_message;
+  }
+  if (
+    hess_inv != NULL &&
+    PyObject_SetAttrString(opt_res, "hess_inv", (PyObject *) hess_inv) < 0
+  ) {
+    goto except_py_message;
+  }
+  // create PyLongObject * for n_fev, n_jev, n_hev, n_iter. NULL on error
+  PyObject *py_nfev = PyLong_FromSsize_t(n_fev);
+  if (py_nfev == NULL) {
+    goto except_py_message;
+  }
+  PyObject *py_njev = PyLong_FromSsize_t(n_jev);
+  if (py_njev == NULL) {
+    goto except_py_nfev;
+  }
+  PyObject *py_nhev = PyLong_FromSsize_t(n_hev);
+  if (py_nhev == NULL) {
+    goto except_py_njev;
+  }
+  PyObject *py_nit = PyLong_FromSsize_t(n_iter);
+  if (py_nit == NULL) {
+    goto except_py_nhev;
+  }
+  // add py_nfev, py_njev, py_nhev, py_nit to instance. -1 on errors
+  if (PyObject_SetAttrString(opt_res, "nfev", py_nfev) < 0) {
+    goto except_py_nit;
+  }
+  if (PyObject_SetAttrString(opt_res, "njev", py_njev) < 0) {
+    goto except_py_nit;
+  }
+  if (PyObject_SetAttrString(opt_res, "nhev", py_nhev) < 0) {
+    goto except_py_nit;
+  }
+  if (PyObject_SetAttrString(opt_res, "nit", py_nit) < 0) {
+    goto except_py_nit;
+  }
+  // create maxcv attribute, where if NULL we skip and don't add. -1 on error
+  if (maxcv != 0 && PyObject_SetAttrString(opt_res, "maxcv", maxcv) < 0) {
+    goto except_py_nit;
+  }
+  // clean up any new references, as the underlying objects are Py_INCREF'd
+  // internally by PyObject_SetAttrString, and then return opt_res
+  Py_DECREF(py_nit);
+  Py_DECREF(py_nhev);
+  Py_DECREF(py_njev);
+  Py_DECREF(py_nfev);
+  Py_DECREF(py_message);
+  Py_DECREF(py_status);
+  Py_DECREF(py_success);
+  Py_DECREF(opt_class);
+  Py_DECREF(opt_mod);
+  return opt_res;
+// clean up on exceptions
+except_py_nit:
+  Py_DECREF(py_nit);
+except_py_nhev:
+  Py_DECREF(py_nhev);
+except_py_njev:
+  Py_DECREF(py_njev);
+except_py_nfev:
+  Py_DECREF(py_nfev);
+except_py_message:
+  Py_DECREF(py_message);
+except_py_status:
+  Py_DECREF(py_status);
+except_py_success:
+  Py_DECREF(py_success);
+except_opt_res:
+  Py_DECREF(opt_res);
+except_opt_class:
+  Py_DECREF(opt_class);
+except_opt_mod:
+  Py_DECREF(opt_mod);
+  return NULL;
 }
 
 // docstring for mnewton
@@ -896,17 +1072,24 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     n_hev++;
     n_iter++;
   }
-
-  // TODO: populate members of the OptimizeResult
-
-  // since PyObject_SetAttrString internally Py_INCREFs, clean up and return
+  // optimization is completed so populate the OptimizeResult. NULL on error
+  PyObject *res = populate_OptimizeResult(
+    x, 1, 0, "successful termination", fun_x, jac_x, hess_x, NULL,
+    n_fev, n_jev, n_hev, n_iter, NULL
+  );
+  if (res == NULL) {
+    goto except_hess_x;
+  }
+  // PyObject_SetAttrString internally Py_INCREFs, so clean up and return res
   Py_DECREF(hess_x);
   Py_DECREF(jac_x);
   Py_DECREF(fun_x);
   Py_DECREF(fun_args);
-  //Py_DECREF(x);
-  return (PyObject *) x;
+  Py_DECREF(x);
+  return res;
 // clean up on error
+except_hess_x:
+  Py_DECREF(hess_x);
 except_fun_jac_x:
   Py_DECREF(jac_x);
   Py_DECREF(fun_x);
@@ -960,7 +1143,7 @@ new_OptimizeResult(PyObject *self, PyObject *args)
   // optimization status (set to 0 for successful exit)
   PyObject *res_status = PyLong_FromLong(0);
   if (res_status == NULL) {
-    goto except_res_ar;
+    goto except_res_obj;
   }
   // message for the cause of termination (successful)
   PyObject *res_message = PyUnicode_FromString("optimization successful");
@@ -997,6 +1180,8 @@ except_res_message:
   Py_DECREF(res_message);
 except_res_status:
   Py_DECREF(res_status);
+except_res_obj:
+  Py_DECREF(res_obj);
 except_res_ar:
   Py_DECREF(res_ar);
 except_OptimizeResult:
