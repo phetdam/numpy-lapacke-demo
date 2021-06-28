@@ -24,7 +24,7 @@ def lr_default():
 
 
 @pytest.fixture(scope="session")
-def lr_single(global_seed):
+def lr_single(default_seed):
     """Toy single-output linear regression problem.
 
     Problem has 1000 data points with 5 features and a single output. All
@@ -34,7 +34,7 @@ def lr_single(global_seed):
 
     Parameters
     ----------
-    global_seed : int
+    default_seed : int
         pytest fixture. See top-level package conftest.py.
 
     Returns
@@ -56,7 +56,7 @@ def lr_single(global_seed):
     # compute X, y, coefficients
     X, y, coef = make_regression(
         n_samples=1000, n_features=5, n_informative=5, bias=bias,
-        noise=0.1, coef=True, random_state=global_seed
+        noise=0.1, coef=True, random_state=default_seed
     )
     # center X and compute rank, singular values, and return
     X_c = X - X.mean(axis=0)
@@ -66,7 +66,7 @@ def lr_single(global_seed):
 
 
 @pytest.fixture(scope="session")
-def lr_multi(global_seed):
+def lr_multi(default_seed):
     """Toy multi-output linear regression problem.
 
     Problem has 1000 data points with 5 features and 3 outputs. All features
@@ -76,7 +76,7 @@ def lr_multi(global_seed):
 
     Parameters
     ----------
-    global_seed : int
+    default_seed : int
         pytest fixture. See top-level package conftest.py.
 
     Returns
@@ -100,7 +100,7 @@ def lr_multi(global_seed):
     # compute X, y, coefficients
     X, y, coef = make_regression(
         n_features=5, n_informative=5, n_targets=3, bias=bias,
-        noise=0.1, coef=True, random_state=global_seed
+        noise=0.1, coef=True, random_state=default_seed
     )
     # center X and compute rank, singular values, and return
     X_c = X - X.mean(axis=0)
