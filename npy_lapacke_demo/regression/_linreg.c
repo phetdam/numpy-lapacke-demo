@@ -870,7 +870,9 @@ LinearRegression_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 }
 
 // keyword args that the LinearRegression __init__ method accepts
-static char *LinearRegression_kwargs[] = {"fit_intercept", "solver"};
+static const char *LinearRegression_kwargs[] = {
+  "fit_intercept", "solver", NULL
+};
 /**
  *  `__init__` method for the `LinearRegression` class.
  * 
@@ -885,7 +887,7 @@ LinearRegression_init(LinearRegression *self, PyObject *args, PyObject *kwargs)
   // parse arguments. note that arguments are keyword only.
   if (
     !PyArg_ParseTupleAndKeywords(
-      args, kwargs, "|$ps", LinearRegression_kwargs,
+      args, kwargs, "|$ps", (char **) LinearRegression_kwargs,
       &self->fit_intercept, &self->solver
     )
   ) {
