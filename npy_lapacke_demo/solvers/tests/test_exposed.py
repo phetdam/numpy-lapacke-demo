@@ -161,5 +161,61 @@ def test_npy_frob_norm(default_rng, shape, fortran):
     assert _mnewton.EXPOSED_npy_frob_norm(ar) == np.linalg.norm(ar)
 
 
-def test_populate_OptimizeResult():
-    pass
+@pytest.mark.parametrize("with_optional", [True, False])
+def test_populate_OptimizeResult(default_rng, with_optional):
+    """Test the internal populate_OptimizeResult function on model inputs.
+
+    Checks both cases where optional arguments are and aren't provided.
+
+    Parameters
+    ----------
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    with_optional : bool
+        Whether to include the optional parameters 
+    """
+    # number of features in the output
+    n_features = 5
+    # draw x from shifted standard lognormal distribution
+    x = default_rng.lognormal(size=n_features) - 1.
+    # success, status, message
+    success, status = True, 0
+    message = "Iteration limit reached"
+    # value of the objective, number of function evals, number of solver iters
+    fun_x, n_fev, n_iter = 0.1, 1001, 1000
+    # draw jac_x, hess_x, hess_inv from same distribution as x
+    jac_x = default_rng.lognormal(size=n_features) - 1.
+    hess_x = default_rng.lognormal(size=(n_features, n_features)) - 1.
+    hess_inv = default_rng.lognormal(size=(n_features, n_features)) - 1.
+    # get number of gradient, hessian evaluations
+    n_jev, n_hev = n_fev, n_fev
+    # maximum constraint violation
+    maxcv = 0.
+    # collect all the required arguments into a tuple
+    req_args = (x, success, status, message, fun_x, n_fev, n_iter)
+    # if with_optional, pass the optional arguments as well
+    if with_optional:
+        res = _mnewton.EXPOSED_populate_OptimizeResult(
+            *req_args, jac_x=jac_x, n_jev=n_jev, hess_x=hess_x, n_hev=n_hev,
+            hess_inv=hess_inv, maxcv=maxcv
+        )
+    else:
+        res = _mnewton.EXPOSED_populate_OptimizeResult(*req_args)
+    # check that the required arguments are present as attributes in the
+    # return OptimizeResult and that their value has not been changed. note we
+    # directly test for equality with floats since no computation is done.
+    assert np.array_equal(res.x, x)
+    assert res.success == success
+    assert res.status == status
+    assert res.message == message
+    assert res.fun == fun_x
+    assert res.nfev == n_fev
+    assert res.nit == n_iter
+    # if with_optional is provided, also check them
+    if with_optional:
+        assert np.array_equal(res.jac, jac_x)
+        assert res.njev == n_jev
+        assert np.array_equal(res.hess, hess_x)
+        assert res.nhev == n_hev
+        assert np.array_equal(res.hess_inv, hess_inv)
+        assert res.maxcv == maxcv

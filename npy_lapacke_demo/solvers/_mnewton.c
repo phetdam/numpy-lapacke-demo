@@ -869,8 +869,8 @@ PyDoc_STRVAR(
   "success : bool\n"
   "    ``True`` if optimization completed successfully, ``False`` otherwise.\n"
   "status : int\n"
-  "    Numerical exit code indicating exit status. Typically ``0``for normal\n"
-  "    exit, positive int values for errors.\n"
+  "    Numerical exit code indicating exit status. Typically ``0`` for\n"
+  "    normal exit, positive int values for errors. Must not exceed INT_MAX.\n"
   "message : str\n"
   "    Message describing the optimizer cause of termination.\n"
   "fun_x : float\n"
@@ -1033,7 +1033,7 @@ EXPOSED_populate_OptimizeResult(
   Py_XDECREF(hess_x);
   Py_XDECREF(jac_x);
   Py_DECREF(x);
-  Py_RETURN_NONE;
+  return res;
 // clean up on exceptions
 except_hess_inv:
   Py_XDECREF(hess_inv);
