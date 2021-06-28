@@ -138,7 +138,7 @@ def test_remove_unspecified_kwargs_full(full_kwargs, warn):
 @pytest.mark.parametrize("fortran", [False, True])
 @pytest.mark.parametrize("shape", [(0,), (5, 6, 2, 4)])
 def test_npy_frob_norm(global_seed, shape, fortran):
-    """Test the interal npy_frob_norm function on different NumPy arrays.
+    """Test the internal npy_frob_norm function on different NumPy arrays.
 
     Parameters
     ----------
