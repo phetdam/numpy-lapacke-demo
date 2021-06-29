@@ -1169,7 +1169,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   if (
     !PyArg_ParseTupleAndKeywords(
       args, kwargs, "OO|$O!OOdnddd", (char **) mnewton_argnames,
-      &fun, &x, &PyTuple_Type, (PyObject **) &fun_args, &jac, &hess,
+      &fun, &x, &PyTuple_Type, &fun_args, &jac, &hess,
       &gtol, &maxiter, &alpha, &beta, &gamma
     )
   ) {
@@ -1200,12 +1200,12 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     goto except_x;
   }
   // jac must be either callable or Py_True
-  if (!PyCallable_Check(jac) && jac != Py_True) {
+  if (jac == NULL || (!PyCallable_Check(jac) && jac != Py_True)) {
     PyErr_SetString(PyExc_TypeError, "jac must be callable or True");
     goto except_x;
   }
   // hess needs to be callable
-  if (!PyCallable_Check(hess)) {
+  if (hess == NULL || !PyCallable_Check(hess)) {
     PyErr_SetString(PyExc_TypeError, "hess must be provided and be callable");
     goto except_x;
   }
@@ -1231,22 +1231,36 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
     goto except_x;
   }
-  // create new tuple using contents of fun_args where the first argument is
-  // the pointer to x. this makes calling fun, jac, hess much easier.
+  /**
+   * create new tuple using contents of fun_args where the first argument is
+   * the pointer to x. this makes calling fun, jac, hess much easier.
+   * _fun_args might be NULL (original fun_args is NULL if there are no
+   * positional arguments that are passed), in which case it is size 1
+   */
   PyTupleObject *_fun_args = fun_args;
-  fun_args = (PyTupleObject *) PyTuple_New(1 + PyTuple_GET_SIZE(_fun_args));
-  // no need to Py_DECREF _fun_args since it is borrowed ref
+  // handle case where there are no args for fun, jac, hess, i.e. fun_args NULL
+  if (fun_args == NULL) {
+    fun_args = (PyTupleObject *) PyTuple_New(1);
+  }
+  // else there are positional args provided, so make new tuple that is the
+  // size of the original fun_args (_fun_args) + 1
+  else {
+    fun_args = (PyTupleObject *) PyTuple_New(1 + PyTuple_GET_SIZE(_fun_args));
+  }
+  // no need to Py_DECREF _fun_args on error since it is borrowed ref
   if (fun_args == NULL) {
     goto except_x;
   }
   // Py_INCREF x and set first index of fun_args. note reference is stolen.
   Py_INCREF(x);
   PyTuple_SET_ITEM(fun_args, 0, (PyObject *) x);
-  // fill fun_args with stolen Py_INCREF'd references from _fun_args
-  for (Py_ssize_t i = 1; i < PyTuple_GET_SIZE(fun_args); i++) {
-    PyObject *_fun_args_i = PyTuple_GET_ITEM(_fun_args, i - 1);
-    Py_INCREF(_fun_args_i);
-    PyTuple_SET_ITEM(fun_args, i, _fun_args_i);
+  // fill fun_args with references from _fun_args if _fun_args not NULL
+  if (_fun_args != NULL) {
+    for (Py_ssize_t i = 1; i < PyTuple_GET_SIZE(fun_args); i++) {
+      PyObject *_fun_args_i = PyTuple_GET_ITEM(_fun_args, i - 1);
+      Py_INCREF(_fun_args_i);
+      PyTuple_SET_ITEM(fun_args, i, _fun_args_i);
+    }
   }
   // compute initial loss and gradient using compute_loss_grad. recall that the
   // first element of fun_args is a reference to x.
@@ -1255,11 +1269,13 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   if (temp_tp == NULL) {
     goto except_fun_args;
   }
-  // on success, assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF
+  // on success, assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF.
+  // don't need temp_tp anymore, so Py_DECREF it
   fun_x = PyTuple_GET_ITEM(temp_tp, 0);
   jac_x = (PyArrayObject *) PyTuple_GET_ITEM(temp_tp, 1);
   Py_INCREF(fun_x);
   Py_INCREF(jac_x);
+  Py_DECREF(temp_tp);
   // increment n_fev, n_jev to count objective + gradient evals
   n_fev++;
   n_jev++;
@@ -1270,8 +1286,9 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // if successful, increment n_hev to count Hessian evals
   n_hev++;
-  // optimize while not converged, i.e. avg. gradient norm less than tolerance
-  while (npy_frob_norm(jac_x) < gtol) {
+  // optimize while not converged, i.e. avg. gradient norm is >= tolerance and
+  // we have not reached the maximum iteration limit
+  while (npy_frob_norm(jac_x) >= gtol && n_iter < maxiter) {
 
     // TODO: write actual optimization algorithm
 
@@ -1286,11 +1303,13 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     if (temp_tp == NULL) {
       goto except_fun_args;
     }
-    // else again assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF
+    // else again assign temp_tp[0], temp_tp[1] to fun_x, jac_x + Py_INCREF.
+    // don't need temp_tp anymore, so Py_DECREF it
     fun_x = PyTuple_GET_ITEM(temp_tp, 0);
     jac_x = (PyArrayObject *) PyTuple_GET_ITEM(temp_tp, 1);
     Py_INCREF(fun_x);
     Py_INCREF(jac_x);
+    Py_DECREF(temp_tp);
     // increment n_fev, n_jev to count objective + gradient evals
     n_fev++;
     n_jev++;
@@ -1305,8 +1324,8 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // optimization is completed so populate the OptimizeResult. NULL on error
   PyObject *res = populate_OptimizeResult(
-    x, 1, 0, "successful termination", fun_x, jac_x, hess_x, NULL,
-    n_fev, n_jev, n_hev, n_iter, NULL
+    x, 1, 0, "Optimization terminated successfully.", fun_x, jac_x, hess_x,
+    NULL, n_fev, n_jev, n_hev, n_iter, NULL
   );
   if (res == NULL) {
     goto except_hess_x;
