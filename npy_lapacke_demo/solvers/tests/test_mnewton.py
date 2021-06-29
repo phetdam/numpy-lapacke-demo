@@ -12,7 +12,9 @@ from .._mnewton import mnewton
 
 
 def test_mnewton_sanity(qp_noargs):
-    """Test input checking of mnewton both when there are arguments/no args
+    """Test input checking sanity of mnewton.
+
+    For testing that the input checks work as intended.
 
     Parameters
     ----------
@@ -81,6 +83,3 @@ def test_mnewton_sanity(qp_noargs):
         mnewton(f_obj, x0, jac=f_grad, hess=f_hess, gamma=0)
     with unit_raises("gamma"):
         mnewton(f_obj, x0, jac=f_grad, hess=f_hess, gamma=1)
-
-
-#def test_
