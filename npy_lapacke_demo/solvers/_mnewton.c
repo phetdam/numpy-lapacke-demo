@@ -1238,8 +1238,8 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
    * positional arguments that are passed), in which case it is size 1
    */
   PyTupleObject *_fun_args = fun_args;
-  // handle case where there are no args for fun, jac, hess, i.e. fun_args NULL
-  if (fun_args == NULL) {
+  // if no args specified for fun, jac, hess, i.e. _fun_args NULL, size 1
+  if (_fun_args == NULL) {
     fun_args = (PyTupleObject *) PyTuple_New(1);
   }
   // else there are positional args provided, so make new tuple that is the
@@ -1350,107 +1350,8 @@ except_x:
   return NULL;
 }
 
-/**
- * Returns a new `scipy.optimize.OptimizeResult` with some fields set.
- * 
- * Remove from production release!
- * 
- * @param self `PyObject *` module (unused)
- * @param args `PyObject *` positional args (unused)
- * @returns New reference to a `scipy.optimize.OptimizeResult` instance on
- *     success, otherwise `NULL` with exception set on error.
- */
-static PyObject *
-new_OptimizeResult(PyObject *self, PyObject *args)
-{
-  // import scipy.optimize/get a new reference if already imported
-  PyObject *spopt = PyImport_ImportModule("scipy.optimize");
-  if (spopt == NULL) {
-    return NULL;
-  }
-  // get the OptimizeResult member
-  PyObject *OptimizeResult = PyObject_GetAttrString(spopt, "OptimizeResult");
-  if (OptimizeResult == NULL) {
-    goto except_spopt;
-  }
-  // arbitrary ndarray to represent a return result, flags NPY_ARRAY_CARRAY
-  npy_intp dims[] = {10};
-  PyArrayObject *res_ar;
-  res_ar = (PyArrayObject *) PyArray_SimpleNew(1, dims, NPY_DOUBLE);
-  if (res_ar == NULL) {
-    goto except_OptimizeResult;
-  }
-  // call OptimizeResult with no args to get an empty OptimizeResult
-  PyObject *res_obj = PyObject_CallObject(OptimizeResult, NULL);
-  if (res_obj == NULL) {
-    goto except_res_ar;
-  }
-  // get data pointer of res and fill array with some values
-  double *res_data = (double *) PyArray_DATA(res_ar);
-  for (npy_intp i = 0; i < PyArray_DIM(res_ar, 0); i++) {
-    res_data[i] = (1782 + 11 * i) % 10;
-  }
-  // optimization status (set to 0 for successful exit)
-  PyObject *res_status = PyLong_FromLong(0);
-  if (res_status == NULL) {
-    goto except_res_obj;
-  }
-  // message for the cause of termination (successful)
-  PyObject *res_message = PyUnicode_FromString("optimization successful");
-  if (res_message == NULL) {
-    goto except_res_status;
-  }
-  // add res_ar, Py_True, res_status, res_message to res_obj. note that Py_True
-  // needs to have its reference count incremented.
-  if (PyObject_SetAttrString(res_obj, "x", (PyObject *) res_ar) < 0) {
-    goto except_res_message;
-  }
-  Py_INCREF(Py_True);
-  if (PyObject_SetAttrString(res_obj, "success", Py_True) < 0) {
-    // no  goto label for Py_True since we will Py_DECREF it on success
-    Py_DECREF(Py_True);
-    goto except_res_message;
-  }
-  Py_DECREF(Py_True);
-  if (PyObject_SetAttrString(res_obj, "status", res_status) < 0) {
-    goto except_res_message;
-  }
-  if (PyObject_SetAttrString(res_obj, "message", res_message) < 0) {
-    goto except_res_message;
-  }
-  // clean up and return res_obj
-  Py_DECREF(res_message);
-  Py_DECREF(res_status);
-  Py_DECREF(res_ar);
-  Py_DECREF(OptimizeResult);
-  Py_DECREF(spopt);
-  return res_obj;
-// clean up on exceptions
-except_res_message:
-  Py_DECREF(res_message);
-except_res_status:
-  Py_DECREF(res_status);
-except_res_obj:
-  Py_DECREF(res_obj);
-except_res_ar:
-  Py_DECREF(res_ar);
-except_OptimizeResult:
-  Py_DECREF(OptimizeResult);
-except_spopt:
-  Py_DECREF(spopt);
-  return NULL;
-}
-
 // _mnewton methods, possibly including EXTERNAL_* wrappers
 static PyMethodDef _mnewton_methods[] = {
-  {
-    "mnewton", (PyCFunction) mnewton,
-    METH_VARARGS | METH_KEYWORDS, mnewton_doc
-  },
-  {
-    "new_OptimizeResult", (PyCFunction) new_OptimizeResult,
-    METH_VARARGS, NULL
-  },
 // make EXPOSED_* methods accessible if EXPOSE_INTERNAL defined.
 // __INTELLISENSE__ always defined in VS Code; allows Intellisense to work.
 #if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
@@ -1475,6 +1376,10 @@ static PyMethodDef _mnewton_methods[] = {
     METH_VARARGS | METH_KEYWORDS, EXPOSED_populate_OptimizeResult_doc
   },
 #endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
+  {
+    "mnewton", (PyCFunction) mnewton,
+    METH_VARARGS | METH_KEYWORDS, mnewton_doc
+  },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
 };
