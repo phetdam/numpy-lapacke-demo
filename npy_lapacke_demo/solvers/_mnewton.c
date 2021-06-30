@@ -496,7 +496,7 @@ EXPOSED_npy_frob_norm(PyObject *self, PyObject *arg)
  *     the other elements are the elements of `old` in order, `NULL` on error.
  */
 static PyTupleObject *
-tuple_append(PyObject *x, PyTupleObject *old_tp)
+tuple_prepend_single(PyObject *x, PyTupleObject *old_tp)
 {
   // new tuple to return, size of old_tp, temp to hold old_tp elements
   PyTupleObject *new_tp;
@@ -711,8 +711,8 @@ EXPOSED_compute_loss_grad(PyObject *self, PyObject *args, PyObject *kwargs)
   if (x == NULL) {
     return NULL;
   }
-  // use tuple_append to get fun_args. NULL on error + clean up x
-  fun_args = tuple_append((PyObject *) x, fun_args);
+  // use tuple_prepend_single to get fun_args. NULL on error + clean up x
+  fun_args = tuple_prepend_single((PyObject *) x, fun_args);
   if (fun_args == NULL) {
     goto except_x;
   }
@@ -862,8 +862,8 @@ EXPOSED_compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
   if (x == NULL) {
     return NULL;
   }
-  // use tuple_append to get fun_args. NULL on error + clean up x
-  fun_args = tuple_append((PyObject *) x, fun_args);
+  // use tuple_prepend_single to get fun_args. NULL on error + clean up x
+  fun_args = tuple_prepend_single((PyObject *) x, fun_args);
   if (fun_args == NULL) {
     goto except_x;
   }
@@ -1497,7 +1497,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
    * the pointer to x. this makes calling fun, jac, hess much easier. it's ok
    * to overwrite the ref since it is borrowed.
    */
-  fun_args = tuple_append((PyObject *) x, fun_args);
+  fun_args = tuple_prepend_single((PyObject *) x, fun_args);
   // compute initial loss and gradient using compute_loss_grad. recall that the
   // first element of fun_args is a reference to x.
   PyTupleObject *temp_tp = compute_loss_grad(fun, jac, fun_args);
