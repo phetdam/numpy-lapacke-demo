@@ -162,6 +162,18 @@ def test_npy_frob_norm(default_rng, shape, fortran):
     )
 
 
+def test_tuple_prepend_single():
+    """Test the internal tuple_prepend_single function on model inputs."""
+    # can be any Python object
+    x = "arbitrary Python object"
+    # can be any arbitrary tuple as well
+    old_tp = ("arbitrary", "tuple")
+    # check that (x,) is returned if old_tp not provided
+    assert _mnewton.EXPOSED_tuple_prepend_single(x) == (x,)
+    # check that the expected result is returned
+    assert _mnewton.EXPOSED_tuple_prepend_single(x, old_tp) == (x, *old_tp)
+
+
 @pytest.mark.parametrize("with_optional", [True, False])
 def test_populate_OptimizeResult(default_rng, with_optional):
     """Test the internal populate_OptimizeResult function on model inputs.

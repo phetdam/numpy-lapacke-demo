@@ -530,6 +530,60 @@ tuple_prepend_single(PyObject *x, PyTupleObject *old_tp)
   return new_tp;
 }
 
+// wrapper code for tuple_prepend_single to test from Python
+#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
+// docstring for EXPOSED_tuple_prepend_single
+PyDoc_STRVAR(
+  EXPOSED_tuple_prepend_single_doc,
+  "EXPOSED_tuple_prepend_single(x, old_tp=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal functon ``tuple_prepend_single``."
+  "\n\n"
+  "Equivalent to returning ``(x, *old_tp)``."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "x : object\n"
+  "    Arbitrary Python object.\n"
+  "old_tp : tuple, default=None\n"
+  "    A Python tuple. If not provided, then ``(x,)`` is returned."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "tuple"
+);
+// arguments known to EXPOSED_tuple_prepend_single
+static const char *EXPOSED_tuple_prepend_single_argnames[] = {
+  "x", "old_tp", NULL
+};
+/**
+ * Python-accessible wrapper for internal function `tuple_prepend_single`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
+ * @returns New reference to `PyTupleObject`, `NULL` on error.
+ */
+static PyObject *
+EXPOSED_tuple_prepend_single(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // x, old_tp. old_tp must be NULL since it may not be modified
+  PyObject *x;
+  PyTupleObject *old_tp = NULL;
+  // parse arguments
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "O|O!", (char **) EXPOSED_tuple_prepend_single_argnames,
+      &x, &PyTuple_Type, &old_tp
+    )
+  ) {
+    return NULL;
+  }
+  // return result from tuple_prepend_single (NULL on error)
+  return (PyObject *) tuple_prepend_single(x, old_tp);
+}
+#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
+
 /**
  * Internal function for computing objective and gradient values with args.
  * 
@@ -1645,6 +1699,11 @@ static PyMethodDef _mnewton_methods[] = {
     "EXPOSED_npy_frob_norm",
     (PyCFunction) EXPOSED_npy_frob_norm,
     METH_O, EXPOSED_npy_frob_norm_doc
+  },
+  {
+    "EXPOSED_tuple_prepend_single",
+    (PyCFunction) EXPOSED_tuple_prepend_single,
+    METH_VARARGS | METH_KEYWORDS, EXPOSED_tuple_prepend_single_doc
   },
   {
     "EXPOSED_populate_OptimizeResult",
