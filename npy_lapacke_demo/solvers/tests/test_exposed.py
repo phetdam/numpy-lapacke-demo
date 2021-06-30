@@ -168,10 +168,12 @@ def test_tuple_prepend_single():
     x = "arbitrary Python object"
     # can be any arbitrary tuple as well
     old_tp = ("arbitrary", "tuple")
+    # shortens the invocation
+    test_func = _mnewton.EXPOSED_tuple_prepend_single
     # check that (x,) is returned if old_tp not provided
-    assert _mnewton.EXPOSED_tuple_prepend_single(x) == (x,)
+    assert test_func(x) == (x,)
     # check that the expected result is returned
-    assert _mnewton.EXPOSED_tuple_prepend_single(x, old_tp) == (x, *old_tp)
+    assert test_func(x, old_tp=old_tp) == (x, *old_tp)
 
 
 @pytest.mark.parametrize("with_optional", [True, False])
