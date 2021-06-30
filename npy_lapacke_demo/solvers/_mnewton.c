@@ -840,21 +840,13 @@ except_opt_mod:
 // defined in VS Code so defined(__INTELLISENSE__) lets Intellisense work.
 #if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
 // docstring for EXPOSED_populate_OptimizeResult
-/*
-PyArrayObject *x,
-  int success, int status, const char *message,
-  PyObject *fun_x,
-  PyArrayObject *jac_x, PyArrayObject *hess_x, PyArrayObject *hess_inv,
-  Py_ssize_t n_fev, Py_ssize_t n_jev, Py_ssize_t n_hev, Py_ssize_t n_iter,
-  PyObject *maxcv
-*/
 PyDoc_STRVAR(
   EXPOSED_populate_OptimizeResult_doc,
   "EXPOSED_populate_OptimizeResult(x, success, status, message, fun_x,\n"
   "n_fev, n_iter, jac_x=None, n_jev=None, hess_x=None, n_hev=None,\n"
   "hess_inv=None, maxcv=None)"
   "\n--\n\n"
-  "Python-accessible wrapper for internal functon ``populate_OptimizeResult``."
+  "Python-accessible wrapper for internal ``populate_OptimizeResult``."
   "\n\n"
   "Any keyword arguments that are left as ``None`` will not be set to\n"
   "attributes in the returned :class:`scipy.optimize.OptimizeResult`. Unless\n"
@@ -1046,6 +1038,30 @@ except_x:
   return NULL;
 }
 #endif /* defined(__INTELLISENSE__)  || defined(EXPOSE_INTERNAL) */
+
+/**
+ * Returns the Cholesky factor of a p.d. Hessian matrix, which may be modified.
+ * 
+ * Saves memory by modifying a copy of only the lower triangular portion of the
+ * Hessian matrix provided to the function.
+ * 
+ * @param hess `PyArrayObject *` Hessian matrix, type `NPY_DOUBLE`, flags
+ *     `NPY_ARRAY_CARRAY`, shape `(n_features, n_features)`. If not
+ *     sufficiently positive definite, a multiple of the identity will be
+ *     added to a copy of its lower triangle, which will be then be Cholesky
+ *     factored when it is sufficiently positive definite.
+ * @param beta `double` giving the minimum value to add to the diagonal of the
+ *     copied lower triangular portion of `hess` during computation.
+ * @returns New `PyArrayObject *` reference that holds the lower triangular
+ *     Cholesky factor of `hess`, or `hess` plus a multiple of the identity
+ *     which is sufficiently positive definite, in packed format. On error,
+ *     `NULL` is returned with an exception set.
+ */
+static PyArrayObject *
+cholesky_spd_hessian_update(PyArrayObject *hess, double beta)
+{
+  Py_RETURN_NONE;
+}
 
 // docstring for mnewton
 PyDoc_STRVAR(
@@ -1286,12 +1302,52 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // if successful, increment n_hev to count Hessian evals
   n_hev++;
+  // PyArrayObject * for the packed lower Cholesky factor of the [modified]
+  // Hessian and the computed descent direction
+  PyArrayObject *pchol_x, *d_x;
+  // step size chosen by Armijo rule backtracking line search scaling d_x
+  double eta;
   // optimize while not converged, i.e. avg. gradient norm is >= tolerance and
   // we have not reached the maximum iteration limit
   while (npy_frob_norm(jac_x) >= gtol && n_iter < maxiter) {
+    /**
+     * @todo routine to check if hess_x is positive definite enough and to
+     * modify it as needed. the lower triangular Cholesky factor is returned in
+     * packed format (use dpptrf for Cholesky computation, copying the lower
+     * triangular portion of the [updated] Hessian, which is overwritten).
+     * will probably need to modify the declarations at the beginning of the
+     * function to include PyArrayObject * for pchol_x, d_x, and a double *
+     * for x_data, the double * to the data of x.
+     */
+    /*
+    pchol_x = cholesky_spd_hessian_update(hess_x, beta);
+    if (pchol_x == NULL) {
+      goto except_hess_x;
+    }
+    */
+   /**
+    * @todo using pchol_x, the packed lower triangular Cholesky factor, solve
+    * pchol_x @ y = jac_x and then pchol_x.T @ p = y, p the descent direction.
+    * since pchol_x is in packed format, use dtptrs to solve both systems.
+    */
+    /*
+    d_x = compute_mnewton_descent_packed(pchol_x, jac_x);
+    if (d_x == NULL) {
+      Py_DECREF(pchol_x);
+      goto except_hess_x;
+    }
+    */
+    // TODO: use Armijo rule to compute step size with backtracking line search
+    /*
+    eta = armijo_backtrack(fun, jac, fun_args, d_x, alpha, gamma);
+    */
+    // TODO: update values in x (break out into separate routine?)
 
-    // TODO: write actual optimization algorithm
-
+    // clean up unneeded pchol_x, d_x
+    /*
+    Py_DECREF(pchol_x);
+    Py_DECREF(d_x);
+    */
     // done with fun_x, jac_x, hess_x, so we compute next values of fun_x,
     // jac_x, hess_x using updated x. can Py_DECREF all of these.
     Py_DECREF(fun_x);
