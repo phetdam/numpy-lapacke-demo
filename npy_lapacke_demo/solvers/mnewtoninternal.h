@@ -1,11 +1,11 @@
 /**
- * @file mnewton.h
+ * @file mnewtoninternal.h
  * @author Derek Huang <djh458@stern.nyu.edu>
- * @brief Header to let extensions use internal C functions in `_mnewton.h`.
+ * @brief Header to let extensions use internal C functions in `_mnewton.c`.
  */
 
-#ifndef NPY_LPK_MNEWTON_H
-#define NPY_LPK_MNEWTON_H
+#ifndef NPY_LPK_MNEWTONINTERNAL_H
+#define NPY_LPK_MNEWTONINTERNAL_H
 
 // PY_SSIZE_T_CLEAN, NPY_NO_DEPRECATED_API defines must be guarded
 #ifndef PY_SSIZE_T_CLEAN
@@ -33,7 +33,7 @@
 #define Py__mnewton_populate_OptimizeResult_NUM 6
 
 // in client modules, define the void ** API and the import function.
-#if defined(__INTELLISENSE__) || !defined(MNEWTON_MODULE)
+#ifndef MNEWTON_MODULE
 static void **Py__mnewton_API;
 // internal C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs \
@@ -85,4 +85,4 @@ _import__mnewton(void)
   }
 #endif /* MNEWTON_MODULE */
 
-#endif /* NPY_LPK_MNEWTON_H */
+#endif /* NPY_LPK_MNEWTONINTERNAL_H */

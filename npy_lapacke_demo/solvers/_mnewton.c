@@ -27,7 +27,7 @@
 #include "npy_lapacke_demo/extutils.h"
 
 #define MNEWTON_MODULE
-#include "mnewton.h"
+#include "mnewtoninternal.h"
 
 /**
  * Remove a select subset of string keys from a kwargs dict.

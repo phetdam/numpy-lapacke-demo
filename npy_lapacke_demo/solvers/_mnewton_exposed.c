@@ -11,7 +11,7 @@
 #include <numpy/arrayobject.h>
 
 // gives access to internal C functions in _mnewton.c
-#include "mnewton.h"
+#include "mnewtoninternal.h"
 
 // flags to pass to remove_kwargs_dispatcher controlling whether to call
 // remove_specified_kwargs or remove_unspecified_kwargs
