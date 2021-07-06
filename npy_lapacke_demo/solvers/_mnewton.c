@@ -369,109 +369,6 @@ except_fun_x:
   return NULL;
 }
 
-// wrapper code for compute_loss_grad to let us test from Python.
-// __INTELLISENSE__ always defined in VS Code.
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-// docstring for EXPOSED_compute_loss_grad
-PyDoc_STRVAR(
-  EXPOSED_compute_loss_grad_doc,
-  "EXPOSED_compute_loss_grad(fun, jac, x, args=None)"
-  "\n--\n\n"
-  "Python-accessible wrapper for internal function `compute_loss_grad`."
-  "\n\n"
-  "Parameters\n"
-  "----------\n"
-  "fun : function\n"
-  "    Objective function with signature ``fun(x, *args)``. Must return a\n"
-  "    float or something that can be converted to a float.\n"
-  "jac : function or True\n"
-  "    Gradient function with signature ``jac(x, *args)`` is callable. May\n"
-  "    ``True``, in which case ``fun`` must return ``(loss, grad)``.\n"
-  "x : numpy.ndarray\n"
-  "    Point to evaluate ``fun``, ``jac`` at. Must have type ``NPY_DOUBLE``\n"
-  "    and flags ``NPY_ARRAY_IN_ARRAY`` or be convertible to such. ``x`` is\n"
-  "    assumed to have shape ``(n_features,)`` but no checks are performed.\n"
-  "args : tuple, default=None\n"
-  "    Additional positional arguments to pass to ``fun``, ``jac``."
-  "\n\n"
-  "Returns\n"
-  "-------\n"
-  "loss : float\n"
-  "    Current value of the objective function at ``x``\n"
-  "grad : numpy.ndarray\n"
-  "    Current value of the gradient at ``x``, same shape as ``x``"
-);
-// argument names known to EXPOSED_compute_loss_grad
-static const char *EXPOSED_compute_loss_grad_argnames[] = {
-  "fun", "jac", "x", "args", NULL
-};
-/**
- * Python-accessible wrapper for `compute_loss_grad`.
- * 
- * @param self `PyObject *` module (unused)
- * @param args `PyObject *` tuple of positional args
- * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyTupleObject *` on success, `NULL` on failure.
- */
-static PyObject *
-EXPOSED_compute_loss_grad(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-  // objective, gradient, x (parameter guess)
-  PyObject *fun, *jac;
-  PyArrayObject *x;
-  // positional args for fun, jac containing x as first element, result of
-  // compute_loss_grad. fun_args must be NULL since it may not be modified.
-  PyTupleObject *fun_args, *res;
-  fun_args = NULL;
-  // parse arguments using PyArg_ParseTupleAndKeywords
-  if (
-    !PyArg_ParseTupleAndKeywords(
-      args, kwargs, "OOO|O!", (char **) EXPOSED_compute_loss_grad_argnames,
-      &fun, &jac, &x, &PyTuple_Type, &fun_args
-    )
-  ) {
-    return NULL;
-  }
-  // success. check that fun is callable
-  if (!PyCallable_Check(fun)) {
-    PyErr_SetString(PyExc_TypeError, "fun must be callable");
-    return NULL;
-  }
-  // check that jac is either callable or Py_True
-  if (!PyCallable_Check(jac) && jac != Py_True) {
-    PyErr_SetString(PyExc_TypeError, "jac must be callable or True");
-    return NULL;
-  }
-  // convert x to numpy.ndarray with NPY_DOUBLE type, NPY_ARRAY_IN_ARRAY flags
-  x = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (x == NULL) {
-    return NULL;
-  }
-  // use tuple_prepend_single to get fun_args. NULL on error + clean up x
-  fun_args = tuple_prepend_single((PyObject *) x, fun_args);
-  if (fun_args == NULL) {
-    goto except_x;
-  }
-  // feed fun, jac, fun_args to compute_loss_grad and get res (NULL on error)
-  res = compute_loss_grad(fun, jac, fun_args);
-  if (res == NULL) {
-    goto except_fun_args;
-  }
-  // if no problems, clean up and return
-  Py_DECREF(fun_args);
-  Py_DECREF(x);
-  return (PyObject *) res;
-// clean up on errors
-except_fun_args:
-  Py_DECREF(fun_args);
-except_x:
-  Py_DECREF(x);
-  return NULL;
-}
-#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
-
 /**
  * Internal function for computing Hessian with args.
  * 
@@ -528,100 +425,6 @@ compute_hessian(PyObject *hess, PyTupleObject *args)
   // if shape of Hessian is correct, return
   return hess_x;
 }
-
-// wrapper code for compute_hessian to let us test from Python.
-// __INTELLISENSE__ always defined in VS Code.
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-// docstring for EXPOSED_compute_hessian
-PyDoc_STRVAR(
-  EXPOSED_compute_hessian_doc,
-  "EXPOSED_compute_hessian(hess, x, args=None)"
-  "\n--\n\n"
-  "Python-accessible wrapper for internal function `compute_hessian`."
-  "\n\n"
-  "Parameters\n"
-  "----------\n"
-  "hess : function\n"
-  "    Hessian function with signature ``hess(x, *args)``. Must return a\n"
-  "    :class:`numpy.ndarray` with type ``NPY_DOUBLE`` and flags\n"
-  "    ``NPY_ARRAY_CARRAY`` or something convertible as such. Returned array\n"
-  "    should have shape ``(n_features, n_features)`` (not checked).\n"
-  "x : numpy.ndarray\n"
-  "    Point to evaluate ``fun``, ``jac`` at. Must have type ``NPY_DOUBLE``\n"
-  "    and flags ``NPY_ARRAY_IN_ARRAY`` or be convertible to such. ``x`` is\n"
-  "    assumed to have shape ``(n_features,)`` but no checks are performed.\n"
-  "args : tuple, default=None\n"
-  "    Additional positional arguments to pass to ``hess``."
-  "\n\n"
-  "Returns\n"
-  "-------\n"
-  "numpy.ndarray\n"
-  "    Current value of the Hessian function at ``x``"
-);
-// argument names known to EXPOSED_compute_hessian
-static const char *EXPOSED_compute_hessian_argnames[] = {
-  "hess", "x", "args", NULL
-};
-/**
- * Python-accessible wrapper for `compute_loss_grad`.
- * 
- * @param self `PyObject *` module (unused)
- * @param args `PyObject *` tuple of positional args
- * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
- */
-static PyObject *
-EXPOSED_compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-  // hessian, x (parameter guess), result of compute_hessian
-  PyObject *hess;
-  PyArrayObject *x, *res;
-  // positional args for fun, jac containing x as first element. fun_args must
-  // be NULL since it may not be modified by PyArg_ParseTupleAndKeywords.
-  PyTupleObject *fun_args = NULL;
-  // parse arguments using PyArg_ParseTupleAndKeywords
-  if (
-    !PyArg_ParseTupleAndKeywords(
-      args, kwargs, "OO|O!", (char **) EXPOSED_compute_hessian_argnames,
-      &hess, &x, &PyTuple_Type, &fun_args
-    )
-  ) {
-    return NULL;
-  }
-  // success. check that hess is callable
-  if (!PyCallable_Check(hess)) {
-    PyErr_SetString(PyExc_TypeError, "hess must be callable");
-    return NULL;
-  }
-  // convert x to numpy.ndarray with NPY_DOUBLE type, NPY_ARRAY_IN_ARRAY flags
-  x = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (x == NULL) {
-    return NULL;
-  }
-  // use tuple_prepend_single to get fun_args. NULL on error + clean up x
-  fun_args = tuple_prepend_single((PyObject *) x, fun_args);
-  if (fun_args == NULL) {
-    goto except_x;
-  }
-  // feed fun, jac, fun_args to compute_hessian and get res (NULL on error)
-  res = compute_hessian(hess, fun_args);
-  if (res == NULL) {
-    goto except_fun_args;
-  }
-  // if no problems, clean up and return
-  Py_DECREF(fun_args);
-  Py_DECREF(x);
-  return (PyObject *) res;
-// clean up on errors
-except_fun_args:
-  Py_DECREF(fun_args);
-except_x:
-  Py_DECREF(x);
-  return NULL;
-}
-#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
 
 /**
  * Internal function for populating a `scipy.optimize.OptimizeResult`.
@@ -1219,6 +1022,10 @@ PyInit__mnewton(void)
     (void *) npy_frob_norm;
   Py__mnewton_API[Py__mnewton_tuple_prepend_single_NUM] = \
     (void *) tuple_prepend_single;
+  Py__mnewton_API[Py__mnewton_compute_loss_grad_NUM] = \
+    (void *) compute_loss_grad;
+  Py__mnewton_API[Py__mnewton_compute_hessian_NUM] = \
+    (void *) compute_hessian;
   Py__mnewton_API[Py__mnewton_populate_OptimizeResult_NUM] = \
     (void *) populate_OptimizeResult;
   // create capsule containing address to C array API. PyModule_AddObject only

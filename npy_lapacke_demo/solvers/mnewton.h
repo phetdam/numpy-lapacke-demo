@@ -21,14 +21,16 @@
 #include <numpy/arrayobject.h>
 
 // total number of function pointers stored in the void ** C API
-#define Py__mnewton_API_pointers 5
+#define Py__mnewton_API_pointers 7
 
 // API indices for each of the exposed C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs_NUM 0
 #define Py__mnewton_remove_unspecified_kwargs_NUM 1
 #define Py__mnewton_npy_frob_norm_NUM 2
 #define Py__mnewton_tuple_prepend_single_NUM 3
-#define Py__mnewton_populate_OptimizeResult_NUM 4
+#define Py__mnewton_compute_loss_grad_NUM 4
+#define Py__mnewton_compute_hessian_NUM 5
+#define Py__mnewton_populate_OptimizeResult_NUM 6
 
 // in client modules, define the void ** API and the import function.
 #if defined(__INTELLISENSE__) || !defined(MNEWTON_MODULE)
@@ -46,6 +48,12 @@ static void **Py__mnewton_API;
 #define Py__mnewton_tuple_prepend_single \
   (*(PyTupleObject *(*)(PyObject *, PyTupleObject *)) \
   Py__mnewton_API[Py__mnewton_tuple_prepend_single_NUM])
+#define Py__mnewton_compute_loss_grad \
+  (*(PyTupleObject *(*)(PyObject *, PyObject *, PyTupleObject *)) \
+  Py__mnewton_API[Py__mnewton_compute_loss_grad_NUM])
+#define Py__mnewton_compute_hessian \
+  (*(PyArrayObject *(*)(PyObject *, PyTupleObject *)) \
+  Py__mnewton_API[Py__mnewton_compute_hessian_NUM])
 #define Py__mnewton_populate_OptimizeResult \
   (*(PyObject *(*)(PyArrayObject *, int, int, const char *, PyObject *, \
   PyArrayObject *, PyArrayObject *, PyArrayObject *, \
