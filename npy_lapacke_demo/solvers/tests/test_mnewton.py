@@ -83,3 +83,6 @@ def test_mnewton_sanity(qp_noargs):
         mnewton(f_obj, x0, jac=f_grad, hess=f_hess, gamma=0)
     with unit_raises("gamma"):
         mnewton(f_obj, x0, jac=f_grad, hess=f_hess, gamma=1)
+    # tau_factor must be 2 or greater
+    with pytest.raises(ValueError, match=r"tau_factor must be at least 2"):
+        mnewton(f_obj, x0, jac=f_grad, hess=f_hess, tau_factor=1.999)

@@ -11,10 +11,9 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <float.h>
 #include <limits.h>
 #include <math.h>
-#include <string.h>
-#include <stdio.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
@@ -621,41 +620,190 @@ except_opt_mod:
   return NULL;
 }
 
-// Python-accessible wrapper for populate_OptimizeResult. __INTELLISENSE__ is
-// defined in VS Code so defined(__INTELLISENSE__) lets Intellisense work.
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-
-#endif /* defined(__INTELLISENSE__)  || defined(EXPOSE_INTERNAL) */
+/**
+ * Store a packed copy of the lower diagonal of a symmetric matrix.
+ * 
+ * No checking of the inputs are done. The packed elements are stored in
+ * row-major format as well, i.e. `LAPACK_ROW_MAJOR` layout.
+ * 
+ * @param mat `const double *` pointing to memory holding elements of a matrix
+ *     stored in row-major format, total number of elements `n * n`.
+ * @param matp `double *` pointing to memory that will hold the lower diagonal
+ *     of `mat` stored in packed format, total elements `n + n * (n - 1) / 2`.
+ * @param n `npy_intp` giving number of rows/columns in `mat`.
+ */
+static void
+symm_packed_copy(const double *mat, double *matp, npy_intp n)
+{
+  for (npy_intp i = 0; i < n; i++) {
+    for (npy_intp j = 0; j < i + 1; j++) {
+      matp[(i + 1) * i / 2 + j] = mat[i * n + j];
+    }
+  }
+}
 
 /**
- * Returns the Cholesky factor of a p.d. Hessian matrix, which may be modified.
+ * Compute the modified Newton descent direction.
+ * 
+ * If the Hessian is not sufficiently positive definite, a multiple of the
+ * identity, with increasing diagonal, is added to a copy of the Hessian and
+ * the Cholesky decomposition of the modified Hessian attempted until success.
  * 
  * Saves memory by modifying a copy of only the lower triangular portion of the
- * Hessian matrix provided to the function.
+ * Hessian matrix provided to the function, reducing storage cost.
+ * 
+ * Hesian modification algorithm from pg 51 of Nocedal and Wright.
  * 
  * @param hess `PyArrayObject *` Hessian matrix, type `NPY_DOUBLE`, flags
  *     `NPY_ARRAY_CARRAY`, shape `(n_features, n_features)`. If not
  *     sufficiently positive definite, a multiple of the identity will be
  *     added to a copy of its lower triangle, which will be then be Cholesky
  *     factored when it is sufficiently positive definite.
+ * @param jac `PyArrayObject *` gradient, type `NPY_DOUBLE`, flags
+ *     `NPY_ARRAY_CARRAY`, shape `(n_features,)`.
  * @param beta `double` giving the minimum value to add to the diagonal of the
- *     copied lower triangular portion of `hess` during computation.
- * @returns New `PyArrayObject *` reference that holds the lower triangular
- *     Cholesky factor of `hess`, or `hess` plus a multiple of the identity
- *     which is sufficiently positive definite, in packed format. On error,
- *     `NULL` is returned with an exception set.
+ *     copied lower triangular portion of `hess` during computation of the
+ *     lower Cholesky factor of the modified Hessian.
+ * @param tau_factor `double` to scale the identity matrix added to the Hessian
+ *     each iteration. 2 is standard, but larger values can be set to more
+ *     quickly (yet more crudely) make a positive definite diagonal
+ *     modification of the Hessian for computing a descent direction.
+ * @returns New `PyArrayObject *` reference that holds the [modified] Newton
+ *     descent direction. On error, `NULL` is returned with an exception set.
  */
 static PyArrayObject *
-cholesky_spd_hessian_update(PyArrayObject *hess, double beta)
+compute_mnewton_descent(
+  PyArrayObject *hess, PyArrayObject *jac,
+  double beta, double tau_factor
+)
 {
-  Py_RETURN_NONE;
+  /**
+   * lower triangular (packed) factor of the [modified] Hessian. may later hold
+   * the lower Cholesky factor of itself. tau is the value to add to the
+   * diagonal of lower before it is overwritten by its lower Cholesky factor.
+   * hess_data, jac_data the data pointer of hess, jac.
+   */
+  double *lower, tau, *hess_data, *jac_data;
+  npy_intp n_features;
+  // numpy array to hold the final descent direction and its data pointer
+  PyArrayObject *d_ar;
+  double *d_data;
+  // return status of dpptrf (packed Cholesky factorization routine) and dpptrs
+  // (packed linear equations solver using Cholesky factor)
+  lapack_int lpk_status;
+  // tau initially DBL_MAX. get n_features from hess (n_rows == n_columns here)
+  tau = DBL_MAX;
+  n_features = PyArray_DIM(hess, 0);
+/**
+ * if the CBLAS/LAPACKE implementation doesn't support 64-bit indexing, we must
+ * restrict n_features to be les than INT_MAX.
+ */
+#if !defined(MKL_ILP64) && !defined(OPENBLAS_USE64BITINT)
+  if (n_features > INT_MAX) {
+    PyErr_SetString(
+      PyExc_OverflowError,
+      "CBLAS/LAPACKE implementation does not support 64-bit indexing"
+    );
+    return NULL;
+  }
+#endif
+  // get data pointers for hess, jac
+  hess_data = (double *) PyArray_DATA(hess);
+  jac_data = (double *) PyArray_DATA(jac);
+  // allocate memory for lower. NULL on error. note that only n_features +
+  // n_features * (n_features - 1) / 2 elements need to be stored.
+  lower = (double *) PyMem_RawMalloc(n_features * (n_features + 1) / 2);
+  if (lower == NULL) {
+    return NULL;
+  }
+  // choose starting value of tau based on diagonals of hess. if diagonals are
+  // nonzero, tau is set to zero, else set to min of the diagonal values + beta
+  for (npy_intp i = 0; i < n_features; i++) {
+    tau = fmin(tau, hess_data[i * n_features + i]);
+  }
+  if (tau > 0) {
+    tau = 0;
+  }
+  else {
+    tau = -tau + beta;
+  }
+  // until the modified Hessian is positive definite enough for Cholesky
+  // decomposition (it eventually will be), repeat
+  while (1) {
+    // copy hess into lower, which stores in packed format
+    symm_packed_copy(hess_data, lower, n_features);
+    // modify diagonal elements of lower with tau
+    for (npy_intp i = 0; i < n_features; i++) {
+      lower[(i + 1) * i / 2 + i] += tau;
+    }
+    // apply Cholesky factorization using dpptrf (lower overwritten)
+    lpk_status = LAPACKE_dpptrf(
+      LAPACK_ROW_MAJOR, 'L', (lapack_int) n_features, lower
+    );
+    // if lpk_status is zero, then this matrix is positive definite enough to
+    // be used so we break out of the loop. can then solve for descent.
+    if (lpk_status == 0) {
+      break;
+    }
+    // else if lpk_status > 0, matrix not positive definite enough. increase
+    // tau based on a simple rule (scaling, where beta is the minimum)
+    else if (lpk_status > 0) {
+      tau = fmax(tau_factor * tau, beta);
+    }
+    // else lpk_status < 0; error. parameter -lpk_status is illegal.
+    else {
+      PyErr_Format(
+        PyExc_RuntimeError, "LAPACKE_dpptrf: parameter %ld is an illegal "
+        "value. please ensure hess has no nan or inf values", -lpk_status
+      );
+      goto except_lower;
+    }
+  }
+  /**
+   * now that we have an acceptable value for lower, the lower Cholesky factor
+   * of the diagonally modified Hessian, we can solve for descent direction. we
+   * first allocate the solution array, d_ar. NPY_DOUBLE type. note that the
+   * default flags are NPY_ARRAY_DEFAULT, i.e. NPY_ARRAY_CARRAY.
+   */
+  npy_intp d_dims[] = {n_features};
+  d_ar = (PyArrayObject *) PyArray_SimpleNew(1, d_dims, NPY_DOUBLE);
+  if (d_ar == NULL) {
+    goto except_lower;
+  }
+  // get data pointer to d_ar's underlying data and copy jac's data to d_ar.
+  // note that size of jac, d_ar should be identical.
+  d_data = (double *) PyArray_DATA(d_ar);
+  for (npy_intp i = 0; i < PyArray_SIZE(jac); i++) {
+    d_data[i] = jac_data[i];
+  }
+  // solve system using packed lower Cholesky factor and jac's data in d_data
+  lpk_status = LAPACKE_dpptrs(
+    LAPACK_ROW_MAJOR, 'L', (lapack_int) n_features, 1, lower, d_data, 1
+  );
+  // check exit status. if 0, no problems, else illegal parameter value
+  if (lpk_status != 0) {
+    PyErr_Format(
+      PyExc_RuntimeError, "LAPACKE_dpptrs: parameter %ld is an illegal value. "
+      "please ensure jac has no nan or inf values", -lpk_status
+    );
+    goto except_d_ar;
+  }
+  // don, so clean up lower and return d_ar
+  PyMem_RawFree((void *) lower);
+  return d_ar;
+// clean up on exceptions
+except_d_ar:
+  Py_DECREF(d_ar);
+except_lower:
+  PyMem_RawFree((void *) lower);
+  return NULL;
 }
 
 // docstring for mnewton
 PyDoc_STRVAR(
   mnewton_doc,
   "mnewton(fun, x0, *, args=(), jac=None, hess=None, gtol=1e-4,\n"
-  "maxiter=1000, alpha=0.5, beta=1e-3, gamma=0.8, **ignored)"
+  "maxiter=1000, alpha=0.5, beta=1e-3, gamma=0.8, tau_factor=2., **ignored)"
   "\n--\n\n"
   "Newton's method, adding scaled identity matrix to the Hessian if necessary."
   "\n\n"
@@ -692,7 +840,7 @@ PyDoc_STRVAR(
 // mnewton argument names. PyArg_ParseTupleAndKeywords requires ending NULL.
 static const char *mnewton_argnames[] = {
   "fun", "x0", "args", "jac", "hess", "gtol",
-  "maxiter", "alpha", "beta", "gamma", NULL
+  "maxiter", "alpha", "beta", "gamma", "tau_factor", NULL
 };
 /**
  * mnewton arguments to be specifically dropped from kwargs before calling
@@ -720,10 +868,12 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   // PyObject * for fun, jac, hess (must be callable), and function value.
   PyObject *fun, *jac, *hess, *fun_x;
   fun = jac = hess = fun_x = NULL;
-  // PyArrayObject * for the current parameter guess, gradient, and
-  // [approximate] Hessian values. will be returned in OptimizeResult.
-  PyArrayObject *x, *jac_x, *hess_x;
+  // PyArrayObject * for the current parameter guess, gradient, Hessian, and
+  // descent direction. all but d_x will be returned in OptimizeResult.
+  PyArrayObject *x, *jac_x, *hess_x, *d_x;
   x = jac_x = hess_x = NULL;
+  // step size chosen by Armijo rule backtracking line search scaling d_x
+  double eta;
   /**
    * function arguments to pass to fun, jac, hess; originally corresponds to
    * the args parameter in the Python signature but will be modified to point
@@ -737,12 +887,16 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
    */
   Py_ssize_t n_iter, n_fev, n_jev, n_hev;
   n_iter = n_fev = n_jev = n_hev = 0;
-  // gradient tolerance, max iterations, alpha, beta, gamma
+  // gradient tolerance, max iterations, alpha, beta, gamma, tau_factor
   double gtol = 1e-4;
   Py_ssize_t maxiter = 1000;
   double alpha = 0.5;
   double beta = 1e-3;
   double gamma = 0.8;
+  double tau_factor = 2;
+  // temporary variables
+  PyArrayObject *temp_ar;
+  PyTupleObject *temp_tp;
   /**
    * scipy.optimize.minimize requires that custom minimizers accept the
    * arguments fun, args (fun_args), jac, hess, hessp, bounds, constraints,
@@ -772,9 +926,9 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   // call PyArg_ParseTupleAndKeywords to parse arguments. no new refs yet.
   if (
     !PyArg_ParseTupleAndKeywords(
-      args, kwargs, "OO|$O!OOdnddd", (char **) mnewton_argnames,
+      args, kwargs, "OO|$O!OOdndddd", (char **) mnewton_argnames,
       &fun, &x, &PyTuple_Type, &fun_args, &jac, &hess,
-      &gtol, &maxiter, &alpha, &beta, &gamma
+      &gtol, &maxiter, &alpha, &beta, &gamma, &tau_factor
     )
   ) {
     return NULL;
@@ -786,7 +940,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // now we try to convert x to NPY_DOUBLE array with NPY_ARRAY_CARRAY flags.
   // the new array is enforced to be a copy of the original. NULL on error
-  PyArrayObject *temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
+  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
     (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_CARRAY | NPY_ARRAY_ENSURECOPY
   );
   if (temp_ar == NULL) {
@@ -835,6 +989,12 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
     goto except_x;
   }
+  // tau factor must be at least 2. actually, greater than 1 is the minimum
+  // requirement, but this is typically too slow.
+  if (tau_factor < 2) {
+    PyErr_SetString(PyExc_ValueError, "tau_factor must be at least 2");
+    goto except_x;
+  }
   /**
    * create new tuple using contents of fun_args where the first argument is
    * the pointer to x. this makes calling fun, jac, hess much easier. it's ok
@@ -843,7 +1003,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   fun_args = tuple_prepend_single((PyObject *) x, fun_args);
   // compute initial loss and gradient using compute_loss_grad. recall that the
   // first element of fun_args is a reference to x.
-  PyTupleObject *temp_tp = compute_loss_grad(fun, jac, fun_args);
+  temp_tp = compute_loss_grad(fun, jac, fun_args);
   // if temp_tp is NULL, clean up
   if (temp_tp == NULL) {
     goto except_fun_args;
@@ -865,52 +1025,27 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // if successful, increment n_hev to count Hessian evals
   n_hev++;
-  // PyArrayObject * for the packed lower Cholesky factor of the [modified]
-  // Hessian and the computed descent direction
-  PyArrayObject *pchol_x, *d_x;
-  // step size chosen by Armijo rule backtracking line search scaling d_x
-  double eta;
   // optimize while not converged, i.e. avg. gradient norm is >= tolerance and
   // we have not reached the maximum iteration limit
   while (npy_frob_norm(jac_x) >= gtol && n_iter < maxiter) {
     /**
-     * @todo routine to check if hess_x is positive definite enough and to
-     * modify it as needed. the lower triangular Cholesky factor is returned in
-     * packed format (use dpptrf for Cholesky computation, copying the lower
-     * triangular portion of the [updated] Hessian, which is overwritten).
-     * will probably need to modify the declarations at the beginning of the
-     * function to include PyArrayObject * for pchol_x, d_x, and a double *
-     * for x_data, the double * to the data of x.
+     * compute modified Newton descent direction using Cholesky decomposition.
+     * Hessian used to solve linear system may be modified if not positive
+     * definite. memory saved since copied modified Hessian used in computation
+     * is stored in packed format (lower triangle only).
      */
-    /*
-    pchol_x = cholesky_spd_hessian_update(hess_x, beta);
-    if (pchol_x == NULL) {
-      goto except_hess_x;
-    }
-    */
-   /**
-    * @todo using pchol_x, the packed lower triangular Cholesky factor, solve
-    * pchol_x @ y = jac_x and then pchol_x.T @ p = y, p the descent direction.
-    * since pchol_x is in packed format, use dtptrs to solve both systems.
-    */
-    /*
-    d_x = compute_mnewton_descent_packed(pchol_x, jac_x);
+    d_x = compute_mnewton_descent(hess_x, jac_x, beta, tau_factor);
     if (d_x == NULL) {
-      Py_DECREF(pchol_x);
       goto except_hess_x;
     }
-    */
     // TODO: use Armijo rule to compute step size with backtracking line search
     /*
     eta = armijo_backtrack(fun, jac, fun_args, d_x, alpha, gamma);
     */
     // TODO: update values in x (break out into separate routine?)
 
-    // clean up unneeded pchol_x, d_x
-    /*
-    Py_DECREF(pchol_x);
+    // after updating x, clean up unneeded d_x
     Py_DECREF(d_x);
-    */
     // done with fun_x, jac_x, hess_x, so we compute next values of fun_x,
     // jac_x, hess_x using updated x. can Py_DECREF all of these.
     Py_DECREF(fun_x);
