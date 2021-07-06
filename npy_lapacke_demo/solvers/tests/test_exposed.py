@@ -1,8 +1,7 @@
-__doc__ = """Tests for extension functions requiring -DEXPOSE_INTERNAL.
+__doc__ = """Tests for internal _mnewton functions.
 
-The C extension functions that are tested here expose Python-accessible
-wrappers only when the extensions are compiled with -DEXPOSE_INTERNAL. These
-wrappers all start with EXPOSED_ and usually include some input checking.
+The internal C extension functions in _mnewton are exposed using their
+respective Python-accessible wrappers in _mnewton_exposed.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
@@ -11,12 +10,7 @@ from functools import partial
 import numpy as np
 import pytest
 
-from .. import _mnewton
 from .. import _mnewton_exposed
-
-# skip module tests if _mnewton not built with -DEXTERNAL_EXPOSE. pytestmark
-# applies mark to all tests in module, skip_internal_exposed a custom mark.
-pytestmark = pytest.mark.skip_internal_exposed(_mnewton)
 
 # patterns to match for warnings issued by remove_[un]specified_kwargs
 _specified_match = ".+not in kwargs$"
@@ -170,7 +164,7 @@ def test_tuple_prepend_single():
     # can be any arbitrary tuple as well
     old_tp = ("arbitrary", "tuple")
     # shortens the invocation
-    test_func = _mnewton.EXPOSED_tuple_prepend_single
+    test_func = _mnewton_exposed.tuple_prepend_single
     # check that (x,) is returned if old_tp not provided
     assert test_func(x) == (x,)
     # check that the expected result is returned
@@ -221,12 +215,12 @@ def test_populate_OptimizeResult(default_rng, with_optional):
     req_args = (x, success, status, message, fun_x, n_fev, n_iter)
     # if with_optional, pass the optional arguments as well
     if with_optional:
-        res = _mnewton.EXPOSED_populate_OptimizeResult(
+        res = _mnewton_exposed.populate_OptimizeResult(
             *req_args, jac_x=jac_x, n_jev=n_jev, hess_x=hess_x, n_hev=n_hev,
             hess_inv=hess_inv, maxcv=maxcv
         )
     else:
-        res = _mnewton.EXPOSED_populate_OptimizeResult(*req_args)
+        res = _mnewton_exposed.populate_OptimizeResult(*req_args)
     # check that the required arguments are present as attributes in the
     # return OptimizeResult and that their value has not been changed. note we
     # directly test for equality with floats since no computation is done.

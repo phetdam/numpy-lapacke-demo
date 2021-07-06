@@ -21,15 +21,17 @@
 #include <numpy/arrayobject.h>
 
 // total number of function pointers stored in the void ** C API
-#define Py__mnewton_API_pointers 3
+#define Py__mnewton_API_pointers 5
 
 // API indices for each of the exposed C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs_NUM 0
 #define Py__mnewton_remove_unspecified_kwargs_NUM 1
 #define Py__mnewton_npy_frob_norm_NUM 2
+#define Py__mnewton_tuple_prepend_single_NUM 3
+#define Py__mnewton_populate_OptimizeResult_NUM 4
 
 // in client modules, define the void ** API and the import function.
-#ifndef MNEWTON_MODULE
+#if defined(__INTELLISENSE__) || !defined(MNEWTON_MODULE)
 static void **Py__mnewton_API;
 // internal C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs \
@@ -41,6 +43,14 @@ static void **Py__mnewton_API;
 #define Py__mnewton_npy_frob_norm \
   (*(double (*)(PyArrayObject *)) \
   Py__mnewton_API[Py__mnewton_npy_frob_norm_NUM])
+#define Py__mnewton_tuple_prepend_single \
+  (*(PyTupleObject *(*)(PyObject *, PyTupleObject *)) \
+  Py__mnewton_API[Py__mnewton_tuple_prepend_single_NUM])
+#define Py__mnewton_populate_OptimizeResult \
+  (*(PyObject *(*)(PyArrayObject *, int, int, const char *, PyObject *, \
+  PyArrayObject *, PyArrayObject *, PyArrayObject *, \
+  Py_ssize_t, Py_ssize_t, Py_ssize_t, Py_ssize_t, PyObject *)) \
+  Py__mnewton_API[Py__mnewton_populate_OptimizeResult_NUM])
 
 /**
  * Makes the `_mnewton.c` C API available.

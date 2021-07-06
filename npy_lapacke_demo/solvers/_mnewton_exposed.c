@@ -257,6 +257,252 @@ npy_frob_norm(PyObject *self, PyObject *arg)
   return (PyObject *) PyFloat_FromDouble(Py__mnewton_npy_frob_norm(ar));
 }
 
+// docstring for tuple_prepend_single wrapper
+PyDoc_STRVAR(
+  tuple_prepend_single_doc,
+  "tuple_prepend_single(x, old_tp=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal functon tuple_prepend_single."
+  "\n\n"
+  "Equivalent to returning (x, *old_tp) in Python."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "x : object\n"
+  "    Arbitrary Python object.\n"
+  "old_tp : tuple, default=None\n"
+  "    A Python tuple. If not provided, then (x,) is returned."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "tuple"
+);
+// arguments known to tuple_prepend_single
+static const char *tuple_prepend_single_argnames[] = {
+  "x", "old_tp", NULL
+};
+/**
+ * Python-accessible wrapper for internal function `tuple_prepend_single`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
+ * @returns New reference to `PyTupleObject`, `NULL` on error.
+ */
+static PyObject *
+tuple_prepend_single(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // x, old_tp. old_tp must be NULL since it may not be modified
+  PyObject *x;
+  PyTupleObject *old_tp = NULL;
+  // parse arguments
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "O|O!", (char **) tuple_prepend_single_argnames,
+      &x, &PyTuple_Type, &old_tp
+    )
+  ) {
+    return NULL;
+  }
+  // return result from Py__mnewton_tuple_prepend_single (NULL on error)
+  return (PyObject *) Py__mnewton_tuple_prepend_single(x, old_tp);
+}
+
+// docstring for populate_OptimizeResult wrapper
+PyDoc_STRVAR(
+  populate_OptimizeResult_doc,
+  "populate_OptimizeResult(x, success, status, message, fun_x, n_fev,\n"
+  "n_iter, jac_x=None, n_jev=None, hess_x=None, n_hev=None,\n"
+  "hess_inv=None, maxcv=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal populate_OptimizeResult."
+  "\n\n"
+  "Any keyword arguments that are left as None will not be set to attributes\n"
+  "in the returned scipy.optimize.OptimizeResult. Unless noted, arguments\n"
+  "correspond to their attributes in the OptimizeResult."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "x : numpy.ndarray\n"
+  "    Optimization result. NumPy array with flags NPY_ARRAY_CARRAY, type\n"
+  "    NPY_DOUBLE, shape (n_features,), or at least an object convertable to\n"
+  "    such a particular type of NumPy array.\n"
+  "success : bool\n"
+  "    True if optimization completed successfully, False otherwise.\n"
+  "status : int\n"
+  "    Numerical exit code indicating exit status. Typically 0 for normal\n"
+  "    exit, positive int values for errors. Must not exceed INT_MAX.\n"
+  "message : str\n"
+  "    Message describing the optimizer cause of termination.\n"
+  "fun_x : float\n"
+  "    Final value of the objective function, fun in the OptimizeResult.\n"
+  "n_fev : int\n"
+  "    Number of objective evaluations, nfev in the OptimizeResult.\n"
+  "n_iter : int\n"
+  "    Number of solver iterations, nit in the OptimizeResult.\n"
+  "jac_x : numpy.ndarray, default=None\n"
+  "    Final gradient value. If provided, must be NumPy array with same\n"
+  "    flags as x or a convertible object, shape (n_features,). Corresponds\n"
+  "    to the jac attribute in the OptimizeResult.\n"
+  "n_jev : int, default=None\n"
+  "    Number of gradient evaluations, njev in the OptimizeResult.\n"
+  "hess_x : numpy.ndarray, default=None\n"
+  "    Final [approximate] Hessian value. If provided, must have same flags\n"
+  "    as x or be a convertible object, shape (n_features, n_features).\n"
+  "    Corresponds to the hess attribute in the OptimizeResult.\n"
+  "n_hev : int, default=None\n"
+  "    Number of Hessian evaluations, nhev in the OptimizeResult.\n"
+  "hess_inv : numpy.ndarray, default=None\n"
+  "    Inverse of the final [approximate] Hessian. If provided, must have\n"
+  "    same flags as x or be a convertible object, shape\n"
+  "    (n_features, n_features) like hess_x.\n"
+  "maxcv : float, default=None\n"
+  "    Maximum constraint violation."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "scipy.optimize.OptimizeResult"
+);
+// argument names known to populate_OptimizeResult
+static const char *populate_OptimizeResult_argnames[] = {
+  "x", "success", "status", "message", "fun_x", "n_fev", "n_iter",
+  "jac_x", "n_jev", "hess_x", "n_hev", "hess_inv", "maxcv", NULL
+};
+/**
+ * Python-accessible wrapper for internal function `populate_OptimizeResult`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` positional args tuple
+ * @param kwargs `PyObject *` dict of keyword args, possibly `NULL`
+ * @returns New `PyObject *` reference to a `scipy.optimize.OptimizeResult`
+ *     populated with the specified arguments, `NULL` with exception on error.
+ */
+static PyObject *
+populate_OptimizeResult(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // optimization result, final gradient, final Hessian + inverse
+  PyArrayObject *x, *jac_x, *hess_x, *hess_inv;
+  x = jac_x = hess_x = hess_inv = NULL;
+  // function value, maximum constraint violation
+  PyObject *fun_x, *maxcv;
+  fun_x = maxcv = NULL;
+  // success, status, message
+  int success, status;
+  const char *message;
+  // number of function, gradient, Hessian, evaluations, solver iterations.
+  // note that n_jev, n_hev are set to -1 by default
+  Py_ssize_t n_fev, n_jev, n_hev, n_iter;
+  n_jev = n_hev = -1;
+  // parse arguments. we convert PyArrayObject * later.
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OpisO!nn|OnOnOO!",
+      (char **) populate_OptimizeResult_argnames,
+      &x, &success, &status, &message, &PyFloat_Type, &fun_x, &n_fev, &n_iter,
+      &jac_x, &n_jev, &hess_x, &n_hev, &hess_inv, &PyFloat_Type, &maxcv
+    )
+  ) {
+    return NULL;
+  }
+  // convert x to ndarray, NPY_DOUBLE with NPY_ARRAY_CARRAY flags. can ignore
+  // the previous reference, which is borrowed.
+  x = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_CARRAY
+  );
+  if (x == NULL) {
+    return NULL;
+  }
+  // x must not be empty, have only 1 dimension
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x must be nonempty");
+    goto except_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x must be 1D");
+    goto except_x;
+  }
+  // get n_features from x
+  npy_intp n_features = PyArray_DIM(x, 0);
+  // convert jac_x to ndarray if not NULL, same flags as x
+  if (jac_x != NULL) {
+    jac_x = (PyArrayObject *) PyArray_FROM_OTF(
+      (PyObject *) jac_x, NPY_DOUBLE, NPY_ARRAY_CARRAY
+    );
+    if (jac_x == NULL) {
+      goto except_x;
+    }
+    // must have same shape as x
+    if (!PyArray_SAMESHAPE(x, jac_x)) {
+      PyErr_SetString(PyExc_ValueError, "jac_x must have shape (n_features,)");
+      goto except_jac_x;
+    }
+  }
+  // convert hess_x to ndarray if not NULL, same flags as x
+  if (hess_x != NULL) {
+    hess_x = (PyArrayObject *) PyArray_FROM_OTF(
+      (PyObject *) hess_x, NPY_DOUBLE, NPY_ARRAY_CARRAY
+    );
+    if (hess_x == NULL) {
+      goto except_jac_x;
+    }
+    // must have 2 dimensions and have n_features in each dimension
+    if (
+      PyArray_NDIM(hess_x) != 2 ||
+      PyArray_DIM(hess_x, 0) != n_features ||
+      PyArray_DIM(hess_x, 1) != n_features
+    ) {
+      PyErr_SetString(
+        PyExc_ValueError, "hess_x must have shape (n_features, n_features)"
+      );
+      goto except_hess_x;
+    }
+  }
+  // convert hess_inv not ndarray if not NULL, same flags as x
+  if (hess_inv != NULL) {
+    hess_inv = (PyArrayObject *) PyArray_FROM_OTF(
+      (PyObject *) hess_inv, NPY_DOUBLE, NPY_ARRAY_CARRAY
+    );
+    if (hess_inv == NULL) {
+      goto except_hess_x;
+    }
+    // must have 2 dimensions and n_features in each dimension
+    if (
+      PyArray_NDIM(hess_inv) != 2 ||
+      PyArray_DIM(hess_inv, 0) != n_features ||
+      PyArray_DIM(hess_inv, 1) != n_features
+    ) {
+      PyErr_SetString(
+        PyExc_ValueError, "hess_inv must have shape (n_features, n_features)"
+      );
+      goto except_hess_inv;
+    }
+  }
+  // done converting, so feed to Py__mnewton_populate_OptimizeResult
+  PyObject *res = Py__mnewton_populate_OptimizeResult(
+    x, success, status, message, fun_x, jac_x, hess_x, hess_inv,
+    n_fev, n_jev, n_hev, n_iter, maxcv
+  );
+  if (res == NULL) {
+    goto except_hess_inv;
+  }
+  // clean up the new PyArrayObject * references (may be NULL) and return res
+  Py_XDECREF(hess_inv);
+  Py_XDECREF(hess_x);
+  Py_XDECREF(jac_x);
+  Py_DECREF(x);
+  return res;
+// clean up on exceptions
+except_hess_inv:
+  Py_XDECREF(hess_inv);
+except_hess_x:
+  Py_XDECREF(hess_x);
+except_jac_x:
+  Py_XDECREF(jac_x);
+except_x:
+  Py_DECREF(x);
+  return NULL;
+}
+
 // _mnewton_exposed methods (wrap internal functions in _mnewton)
 static PyMethodDef _mnewton_exposed_methods[] = {
   {
@@ -274,7 +520,6 @@ static PyMethodDef _mnewton_exposed_methods[] = {
     (PyCFunction) npy_frob_norm,
     METH_O, npy_frob_norm_doc
   },
-#if 0
   {
     "tuple_prepend_single",
     (PyCFunction) tuple_prepend_single,
@@ -285,6 +530,7 @@ static PyMethodDef _mnewton_exposed_methods[] = {
     (PyCFunction) populate_OptimizeResult,
     METH_VARARGS | METH_KEYWORDS, populate_OptimizeResult_doc
   },
+#if 0
   {
     "compute_loss_grad",
     (PyCFunction) compute_loss_grad,
