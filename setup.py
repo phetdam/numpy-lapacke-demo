@@ -97,20 +97,6 @@ def _get_ext_modules(env):
         raise RuntimeError(
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
         )
-    # get flag indicating whether to build with access to internal extension
-    # module functions. EXPOSE_INTERNAL results in some functions that are
-    # static being declared as non-static, which makes them accessible from a
-    # test runner program that also links against libpython3.x.
-    if "EXPOSE_INTERNAL" in env and env["EXPOSE_INTERNAL"] == "1":
-        cblap_macros = [("EXPOSE_INTERNAL", None)]
-    # warn since -DEXPOSE_INTERNAL should always used, except in production
-    else:
-        warnings.warn(
-            "EXPOSE_INTERNAL not set => production build, i.e.\n"
-            "+ no EXPOSED_* functions available in extensions\n"
-            "+ unit tests for EXPOSED_* functions will be disabled"
-        )
-        cblap_macros = []
     # CBLAS + LAPACKE implementation include dirs (include_dirs), library dirs
     # (library_dirs), runtime libary dirs (runtime_library_dirs), names of
     # libraries to link during extension building (libraries), preprocessor
@@ -120,7 +106,7 @@ def _get_ext_modules(env):
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
         cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
         cblap_lib_names = ["openblas"]
-        cblap_macros += [("OPENBLAS_INCLUDE", None)]
+        cblap_macros = [("OPENBLAS_INCLUDE", None)]
         cblap_compile_args = []
     elif USE_NETLIB:
         cblap_include_dirs = [
@@ -132,7 +118,7 @@ def _get_ext_modules(env):
             f"{NETLIB_PATH}/lib/x86_64-linux-gnu"
         ]
         cblap_lib_names = ["blas", "lapacke"]
-        cblap_macros += [("CBLAS_INCLUDE", None), ("LAPACKE_INCLUDE", None)]
+        cblap_macros = [("CBLAS_INCLUDE", None), ("LAPACKE_INCLUDE", None)]
         cblap_compile_args = []
     elif USE_MKL:
         cblap_include_dirs = [f"{MKL_PATH}/include", f"{MKL_PATH}/include/mkl"]
@@ -140,7 +126,7 @@ def _get_ext_modules(env):
             f"{MKL_PATH}/lib/x86_64-linux-gnu", f"{MKL_PATH}/lib/intel64"
         ]
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
-        cblap_macros += [("MKL_INCLUDE", None)]
+        cblap_macros = [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
     # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
     cblap_build_kwargs = dict(
@@ -157,7 +143,13 @@ def _get_ext_modules(env):
             sources=[f"{__package__}/regression/_linreg.c"],
             **cblap_build_kwargs
         ),
-        # wrappers for unit testing internal C functions in _linreg.c (TBD)
+        # wrappers for unit testing internal C functions in _linreg.c
+        Extension(
+          name="regression._linreg_exposed"  ,
+          sources=[f"{__package__}/regression/_linreg_exposed.c"],
+          include_dirs=_EXT_INCLUDE_DIRS,
+          extra_compile_args=_EXT_COMPILE_ARGS
+        ),
         # npy_lapacke_demo.solvers._mnewton, providing mnewton function
         Extension(
             name="solvers._mnewton",

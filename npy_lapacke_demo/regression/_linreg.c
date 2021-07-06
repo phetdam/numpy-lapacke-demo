@@ -21,8 +21,6 @@
 // depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
 #include "npy_lapacke_demo/cblas.h"
 #include "npy_lapacke_demo/lapacke.h"
-// defines the EXPOSE_INTERNAL_NOTICE macro
-#include "npy_lapacke_demo/extutils.h"
 
 // make available macros defined in linreginternal.h for API initialization
 #define LINREG_MODULE
