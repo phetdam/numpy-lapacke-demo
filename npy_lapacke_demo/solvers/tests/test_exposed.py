@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from .. import _mnewton
+from .. import _mnewton_exposed
 
 # skip module tests if _mnewton not built with -DEXTERNAL_EXPOSE. pytestmark
 # applies mark to all tests in module, skip_internal_exposed a custom mark.
@@ -39,7 +40,7 @@ def test_remove_specified_kwargs_empty(empty_kwargs, warn):
     kwargs, droplist = empty_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton.EXPOSED_remove_specified_kwargs, kwargs, droplist, warn=warn
+        _mnewton_exposed.remove_specified_kwargs, kwargs, droplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -69,7 +70,7 @@ def test_remove_specified_kwargs_full(full_kwargs, warn):
     kwargs, droplist = full_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton.EXPOSED_remove_specified_kwargs, kwargs, droplist, warn=warn
+        _mnewton_exposed.remove_specified_kwargs, kwargs, droplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -99,7 +100,7 @@ def test_remove_unspecified_kwargs_empty(empty_kwargs, warn):
     kwargs, keeplist = empty_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton.EXPOSED_remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+        _mnewton_exposed.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
     )
     # for empty kwargs, no warnings should ever be raised + no keys dropped
     assert test_callable() == 0
@@ -122,7 +123,7 @@ def test_remove_unspecified_kwargs_full(full_kwargs, warn):
     kwargs, keeplist = full_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton.EXPOSED_remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+        _mnewton_exposed.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -158,7 +159,7 @@ def test_npy_frob_norm(default_rng, shape, fortran):
         ar = default_rng.random(size=shape)
     # check that npy_frob_norm has same result as np.linalg.norm
     np.testing.assert_allclose(
-        _mnewton.EXPOSED_npy_frob_norm(ar), np.linalg.norm(ar)
+        _mnewton_exposed.npy_frob_norm(ar), np.linalg.norm(ar)
     )
 
 
@@ -174,6 +175,16 @@ def test_tuple_prepend_single():
     assert test_func(x) == (x,)
     # check that the expected result is returned
     assert test_func(x, old_tp=old_tp) == (x, *old_tp)
+
+
+@pytest.mark.skip(reason="not implemented yet")
+def test_compute_loss_grad_noargs(qp_noargs):
+    pass
+
+
+@pytest.mark.skip(reason="not implemented yet")
+def test_compute_loss_grad_yesargs(qp_yesargs):
+    pass
 
 
 @pytest.mark.parametrize("with_optional", [True, False])

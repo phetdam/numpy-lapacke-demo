@@ -157,11 +157,19 @@ def _get_ext_modules(env):
             sources=[f"{__package__}/regression/_linreg.c"],
             **cblap_build_kwargs
         ),
+        # wrappers for unit testing internal C functions in _linreg.c (TBD)
         # npy_lapacke_demo.solvers._mnewton, providing mnewton function
         Extension(
             name="solvers._mnewton",
             sources=[f"{__package__}/solvers/_mnewton.c"],
             **cblap_build_kwargs
+        ),
+        # wrappers for unit testing internal C functions in _mnewton.c
+        Extension(
+            name="solvers._mnewton_exposed",
+            sources=[f"{__package__}/solvers/_mnewton_exposed.c"],
+            include_dirs=_EXT_INCLUDE_DIRS,
+            extra_compile_args=_EXT_COMPILE_ARGS
         )
     ]
 
