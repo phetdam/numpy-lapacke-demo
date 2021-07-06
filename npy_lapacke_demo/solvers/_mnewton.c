@@ -26,6 +26,7 @@
 // defines the EXPOSE_INTERNAL_NOTICE macro
 #include "npy_lapacke_demo/extutils.h"
 
+// make available macros defined in mnewtoninternal.h for API initialization
 #define MNEWTON_MODULE
 #include "mnewtoninternal.h"
 
