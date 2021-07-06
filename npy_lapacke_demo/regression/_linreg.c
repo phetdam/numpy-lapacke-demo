@@ -24,6 +24,10 @@
 // defines the EXPOSE_INTERNAL_NOTICE macro
 #include "npy_lapacke_demo/extutils.h"
 
+// make available macros defined in linreginternal.h for API initialization
+#define LINREG_MODULE
+#include "linreginternal.h"
+
 // struct representing our linear regression estimator
 typedef struct {
   PyObject_HEAD
@@ -109,72 +113,6 @@ npy_vector_matrix_mean(PyArrayObject *ar)
 }
 
 /**
- * wrapper code for npy_vector_matrix_mean that lets us test it from Python.
- * note that __INTELLISENSE__ is always defined in VS Code, so including the
- * defined(__INTELLISENSE__) lets Intellisense work on the code in VS Code.
- */
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-// docstring for EXPOSED_npy_vector_matrix_mean
-PyDoc_STRVAR(
-  EXPOSED_npy_vector_matrix_mean_doc,
-  "EXPOSED_npy_vector_matrix_mean(ar)"
-  "\n--\n\n"
-  EXPOSE_INTERNAL_NOTICE
-  "\n\n"
-  "Python-accessible wrapper for internal function ``npy_vector_matrix_mean``."
-  "\n\n"
-  "Parameters\n"
-  "----------\n"
-  "ar : numpy.ndarray\n"
-  "    Input array shape ``(n_rows,)`` or ``(n_rows, n_cols)``, convertable\n"
-  "    to ``NPY_DOUBLE`` type. For safety, error checking is done. Exception\n"
-  "    will be raised if ``ar`` is empty or of incorrect shape."
-  "\n\n"
-  "Returns\n"
-  "-------\n"
-  "float or numpy.ndarray\n"
-  "    If ``ar`` has shape ``(n_rows,)``, a Python float is returned (flat\n"
-  "    mean of the elements, while if ``ar`` has shape ``(n_rows, n_cols)``,\n"
-  "    a :class:`numpy.ndarray` shape ``(n_cols,)`` is returned, giving the\n"
-  "    mean across the rows, i.e. like ``ar.mean(axis=0)``."
-);
-/**
- * Python-accessible wrapper for `npy_vector_matrix_mean`.
- * 
- * @param self `PyObject *` module (unused)
- * @param arg `PyObject *` single argument. Method uses `METH_O` flag in its
- *     `PyMethodDef` in `_linreg_methods`, so no `PyArg_ParseTuple` needed.
- * @returns New reference, either `PyArrayObject *` flat vector if `arg` can be
- *     converted to 2D `PyArrayObject *` with type `NPY_DOUBLE` or
- *     `PyFloatObject *` if `arg` can be converted to 1D `PyArrayObject *`.
- */
-static PyObject *
-EXPOSED_npy_vector_matrix_mean(PyObject *self, PyObject *arg)
-{
-  // only one argument is expected, PyArrayObject *, so we directly convert
-  PyArrayObject *ar;
-  ar = (PyArrayObject *) PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_CARRAY);
-  if (ar == NULL) {
-    return NULL;
-  }
-  // cannot pass empty ndarray to npy_vector_matrix_mean or it'll crash
-  if (PyArray_SIZE(ar) == 0) {
-    PyErr_SetString(PyExc_ValueError, "ar must not be empty");
-    goto except;
-  }
-  // otherwise, we can pass this to npy_vector_matrix_mean
-  PyObject *res = npy_vector_matrix_mean(ar);
-  // if res is NULL, we can propagate this. have to Py_DECREF ar anyways
-  Py_DECREF(ar);
-  return res;
-// clean up ar on exceptions
-except:
-  Py_DECREF(ar);
-  return NULL;
-}
-#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
-
-/**
  * Computes the intercept for a linear regression model.
  * 
  * Do NOT call without proper input checking. Inner product computed manually
@@ -253,178 +191,6 @@ compute_intercept(PyArrayObject *coef, PyArrayObject *x_mean, PyObject *y_mean)
   // return bias. NULL on error, which we propagate
   return bias;
 }
-
-/**
- * wrapper code for compute_intercept that lets us test it from Python.
- * note that __INTELLISENSE__ is always defined in VS Code, so including the
- * defined(__INTELLISENSE__) lets Intellisense work on the code in VS Code.
- */
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-// docstring for EXPOSED_compute_intercept
-PyDoc_STRVAR(
-  EXPOSED_compute_intercept_doc,
-  "EXPOSED_compute_intercept(coef, x_mean, y_mean)"
-  "\n--\n\n"
-  EXPOSE_INTERNAL_NOTICE
-  "\n\n"
-  "Python-accessible wrapper for internal function ``compute_intercept``."
-  "\n\n"
-  "Parameters\n"
-  "----------\n"
-  "coef : numpy.ndarray\n"
-  "    Linear model coefficients, shape ``(n_features,)`` for single-target\n"
-  "    problems, ``(n_targets, n_features)`` for multi-target problems.\n"
-  "    Should be convertable to ``NPY_DOUBLE``, ``NPY_ARRAY_IN_ARRAY`` flags.\n"
-  "x_mean : numpy.ndarray\n"
-  "    Mean of the input rows, shape ``(n_features,)``. Should also be\n"
-  "    convertible to the ``NPY_DOUBLE``, ``NPY_ARRAY_IN_ARRAY`` flags.\n"
-  "y_mean : float or numpy.ndarray\n"
-  "    Mean of the response rows, either a float in the single-target case\n"
-  "    or a :class:`numpy.ndarray` in the multi-target case shape\n"
-  "    ``(n_targets,)``. If array, should also be convertible to\n"
-  "    ``NPY_DOUBLE`` with ``NPY_ARRAY_IN_ARRAY`` flags."
-  "\n\n"
-  "Returns\n"
-  "-------\n"
-  "float or numpy.ndarray\n"
-  "    If ``coef`` has shape ``(n_features,)`` while ``y_mean`` is a float,\n"
-  "    a Python float is returned, while if ``coef`` has shape\n"
-  "    ``(n_targets, n_features)`` and ``y_mean`` has shape ``(n_targets,)``,\n"
-  "    a :class:`numpy.ndarray` shape ``(n_targets,)`` is returned."
-);
-/**
- * Python-accessible wrapper for `compute_intercept`.
- * 
- * @param self `PyObject *` module (unused)
- * @param arg `PyObject *` positional args
- * @returns New reference, either `PyArrayObject *` flat vector if the response
- *     is multi-target or a `PyFloatObject *` if response is single-target.
- *     `PyArrayObject *` has `NPY_DOUBLE` type and `NPY_ARRAY_CARRAY` flags.
- */
-static PyObject *
-EXPOSED_compute_intercept(PyObject *self, PyObject *args)
-{
-  // PyArrayObject * for coefficients, mean of input matrix
-  PyArrayObject *coef, *x_mean;
-  coef = x_mean = NULL;
-  // PyObject * for mean of the response, could be float or ndarray
-  PyObject *y_mean = NULL;
-  // parse using PyArg_ParseTuple; note only y_mean is not Py_INCREF'd so we
-  // Py_XINCREF it since at except, we Py_XDECREF y_mean
-  if (
-    !PyArg_ParseTuple(
-      args, "O&O&O", PyArray_Converter, (void *) &coef,
-      PyArray_Converter, (void *) &x_mean, &y_mean
-    )
-  ) {
-    Py_XINCREF(y_mean);
-    goto except;
-  }
-  // Py_INCREF y_mean so we can Py_XDECREF coef, x_mean, y_mean all at once on
-  // cleanup instead of having to handle the y_mean case separately
-  Py_INCREF(y_mean);
-  // temp to hold the conversion result of coef, x_mean, y_mean
-  PyArrayObject *temp_ar;
-  // convert coef to NPY_DOUBLE with NPY_ARRAY_IN_ARRAY flags
-  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) coef, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (temp_ar == NULL) {
-    goto except;
-  }
-  // on success, Py_DECREF coef and assign temp_ar to coef
-  Py_DECREF(coef);
-  coef = temp_ar;
-  // convert x_mean to NPY_DOUBLE with NPY_ARRAY_IN_ARRAY flags
-  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) x_mean, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (temp_ar == NULL) {
-    goto except;
-  }
-  // on success, Py_DECREF x_mean and assign temp_ar to x_mean
-  Py_DECREF(x_mean);
-  x_mean = temp_ar;
-  // neither coef and x_mean may be empty
-  if (PyArray_SIZE(coef) == 0) {
-    PyErr_SetString(PyExc_ValueError, "coef must not be empty");
-    goto except;
-  }
-  if (PyArray_SIZE(x_mean) == 0) {
-    PyErr_SetString(PyExc_ValueError, "x_mean must not be empty");
-    goto except;
-  }
-  // check that coef is either 1 or 2 dims, x_mean is 1 dim
-  if (PyArray_NDIM(coef) != 1 && PyArray_NDIM(coef) != 2) {
-    PyErr_SetString(PyExc_ValueError, "coef must either be 1D or 2D");
-    goto except;
-  }
-  if (PyArray_NDIM(x_mean) != 1) {
-    PyErr_SetString(PyExc_ValueError, "x_mean must be 1D");
-    goto except;
-  }
-  // get n_targets, n_features from coef
-  npy_intp n_features, n_targets;
-  // ndims == 1 => single-target, else multi-target
-  if (PyArray_NDIM(coef) == 1) {
-    n_features = PyArray_DIM(coef, 0);
-    n_targets = 1;
-  }
-  else {
-    n_features = PyArray_DIM(coef, 1);
-    n_targets = PyArray_DIM(coef, 0);
-  }
-  // check that x_mean has length n_features
-  if (PyArray_DIM(x_mean, 0) != n_features) {
-    PyErr_SetString(PyExc_ValueError, "x_mean must have shape (n_features,)");
-    goto except;
-  }
-  // if n_targets == 1, check that y_mean is a PyFloatObject *
-  if (n_targets == 1) {
-    if (!PyFloat_Check(y_mean)) {
-      PyErr_SetString(
-        PyExc_TypeError, "y_mean must be float in single-target case"
-      );
-      goto except;
-    }
-  }
-  // else convert y_mean to PyArrayObject * and check its shape
-  else {
-    temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-      y_mean, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-    );
-    if (temp_ar == NULL) {
-      goto except;
-    }
-    // on success, Py_DECREF y_mean and set to temp_ar
-    Py_DECREF(y_mean);
-    y_mean = (PyObject *) temp_ar;
-    // check that y_mean has 1 dimension only
-    if (PyArray_NDIM((PyArrayObject *) y_mean) != 1) {
-      PyErr_SetString(PyExc_ValueError, "y_mean must be 1D");
-      goto except;
-    }
-    // check that y_mean has shape (n_targets,)
-    if (PyArray_DIM((PyArrayObject *) y_mean, 0) != n_targets) {
-      PyErr_SetString(PyExc_ValueError, "y_mean must have shape (n_targets,)");
-      goto except;
-    }
-  }
-  // get result from compute_intercept. if NULL, we propagate to return
-  PyObject *res = compute_intercept(coef, x_mean, y_mean);
-  // Py_DECREF coef, x_mean, y_mean and return
-  Py_DECREF(coef);
-  Py_DECREF(x_mean);
-  Py_DECREF(y_mean);
-  return res;
-// clean up  coef, x_mean, y_mean on exceptions
-except:
-  Py_XDECREF(coef);
-  Py_XDECREF(x_mean);
-  Py_XDECREF(y_mean);
-  return NULL;
-}
-#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
 
 /**
  * QR solver for the `LinearRegression` class.
@@ -1399,28 +1165,6 @@ static PyTypeObject LinearRegression_type = {
   .tp_methods = LinearRegression_methods
 };
 
-// _linreg methods, possibly including EXTERNAL_* wrappers
-static PyMethodDef _linreg_methods[] = {
-// if EXPOSE_INTERNAL is defined, we make the EXPOSED_* methods accessible.
-// again, defined(__INTELLISENSE__) lets VS Code Intellisense work here
-#if defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL)
-  {
-    "EXPOSED_npy_vector_matrix_mean",
-    (PyCFunction) EXPOSED_npy_vector_matrix_mean,
-    METH_O,
-    EXPOSED_npy_vector_matrix_mean_doc
-  },
-  {
-    "EXPOSED_compute_intercept",
-    (PyCFunction) EXPOSED_compute_intercept,
-    METH_VARARGS,
-    EXPOSED_compute_intercept_doc
-  },
-#endif /* defined(__INTELLISENSE__) || defined(EXPOSE_INTERNAL) */
-  // sentinel marking end of array
-  {NULL, NULL, 0, NULL}
-};
-
 // _linreg module docstring
 PyDoc_STRVAR(
   _linreg_doc,
@@ -1429,20 +1173,23 @@ PyDoc_STRVAR(
   "Provides a linear regression estimator with scikit-learn like interface.\n"
   "Fitting method directly calls into LAPACKE routines ``dgelsy``, ``dgelss``."
 );
-// _linreg module definition
+// _linreg module definition. no available functions
 static PyModuleDef _linreg_module = {
   PyModuleDef_HEAD_INIT,
   // name, docstring, size = -1 to disable subinterpreter support, methods
   .m_name = "_linreg",
   .m_doc = _linreg_doc,
   .m_size = -1,
-  .m_methods = _linreg_methods
+  .m_methods = NULL
 };
 
 // module initialization function
 PyMODINIT_FUNC
 PyInit__linreg(void)
 {
+  // PyObject * for module and capsule, void * array for C API (static!)
+  PyObject *module, *c_api_obj;
+  static void *Py__linreg_API[Py__linreg_API_pointers];
   // import NumPy Array C API. automatically returns NULL on error.
   import_array();
   // check if LinearRegression_type is ready. NULL on error
@@ -1450,8 +1197,8 @@ PyInit__linreg(void)
     return NULL;
   }
   // create module. NULL on error
-  PyObject *this_mod = PyModule_Create(&_linreg_module);
-  if (this_mod == NULL) {
+  module = PyModule_Create(&_linreg_module);
+  if (module == NULL) {
     return NULL;
   }
   // add LinearRegression_type to module. note that reference is stolen only
@@ -1459,12 +1206,32 @@ PyInit__linreg(void)
   Py_INCREF(&LinearRegression_type);
   if (
     PyModule_AddObject(
-      this_mod, "LinearRegression", (PyObject *) &LinearRegression_type
+      module, "LinearRegression", (PyObject *) &LinearRegression_type
     ) < 0
   ) {
     Py_DECREF(&LinearRegression_type);
-    Py_DECREF(this_mod);
-    return NULL;
+    goto except_module;
   }
-  return this_mod;
+  // initialize the pointers for the C function pointer API
+  Py__linreg_API[Py__linreg_npy_vector_matrix_mean_NUM] = \
+    (void *) npy_vector_matrix_mean;
+  Py__linreg_API[Py__linreg_compute_intercept_NUM] = \
+    (void *) compute_intercept;
+  /**
+   * create capsulte containing address to C array API. on error, must XDECREF
+   * c_api_obj, as it may be NULL on error. &LinearRegression_type reference
+   * has been previously stolen, so no Py_DECREF of it on error.
+   */
+  c_api_obj = PyCapsule_New(
+    (void *) Py__linreg_API, "npy_lapacke_demo.regression._linreg._C_API", NULL
+  );
+  if (PyModule_AddObject(module, "_C_API", c_api_obj) < 0) {
+    Py_XDECREF(c_api_obj);
+    goto except_module;
+  }
+  return module;
+// clean up module on exception
+except_module:
+  Py_DECREF(module);
+  return NULL;
 }

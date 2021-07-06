@@ -41,14 +41,11 @@ export MKL_THREADING_LAYER ?= SEQUENTIAL
 export OPENBLAS_PATH ?= /opt/OpenBLAS/
 export NETLIB_PATH ?= /usr
 export MKL_PATH ?= /usr
-# whether or not to expose the EXPOSED_* methods in the C extensions. useful
-# for unit testing methods typically private to the modules. on by default.
-export EXPOSE_INTERNAL ?= 1
 # arguments to pass to pytest. default here shows skipped, xfailed, xpassed,
 # and passed tests that print output in the brief summary report.
 PYTEST_ARGS ?= -rsxXP
 
-# to force setup.py to rebuild, add clean as a target, which is a phony target
+# to force setup.py to rebuild, add clean as a target. note that it is phony.
 ifeq ($(REBUILD), 1)
 py_deps += clean
 endif
@@ -79,15 +76,15 @@ inplace: build
 check: inplace
 	pytest $(PYTEST_ARGS)
 
-# make source and wheel, no access to EXPOSED_* functions.
+# make source and wheel
 dist: build
-	EXPOSE_INTERNAL= $(PYTHON) setup.py sdist bdist_wheel $(DIST_FLAGS)
+	$(PYTHON) setup.py sdist bdist_wheel $(DIST_FLAGS)
 
-# make wheel, no access to EXPOSED_* functions.
-bdist_wheel: $(ext_deps) $(py_deps)
-	EXPOSE_INTERNAL= $(PYTHON) setup.py bdist_wheel $(DIST_FLAGS)
+# make wheel
+bdist_wheel: build
+	$(PYTHON) setup.py bdist_wheel $(DIST_FLAGS)
 
-# make just sdist. ok to not set EXPOSED_*; only copies files. set
-# USE_OPENBLAS=1 to suppress warnings (doesn't have any effect).
+# make just sdist. only copies files. set USE_OPENBLAS=1 to suppress warnings
+# (doesn't have any effect beyond being used for warning suppression).
 sdist:
 	USE_OPENBLAS=1 $(PYTHON) setup.py sdist $(DIST_FLAGS)

@@ -1,8 +1,7 @@
-__doc__ = """Tests for extension functions requiring -DEXPOSE_INTERNAL.
+__doc__ = """Tests for internal _linreg functions.
 
-The C extension functions that are tested here expose Python-accessible
-wrappers only when the extensions are compiled with -DEXPOSE_INTERNAL. These
-wrappers all start with EXPOSED_ and usually include some input checking.
+The internal C extension functions in _linreg are exposed using their
+respective Python-accessible wrappers in _linreg_exposed.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
@@ -10,11 +9,7 @@ wrappers all start with EXPOSED_ and usually include some input checking.
 import numpy as np
 import pytest
 
-from .. import _linreg
-
-# skip all module tests if _linreg not built with -DEXTERNAL_EXPOSE. pytestmark
-# applies mark to all tests in module, skip_internal_exposed a custom mark.
-pytestmark = pytest.mark.skip_internal_exposed(_linreg)
+from .. import _linreg_exposed
 
 
 def test_npy_vector_matrix_mean(default_rng):
@@ -31,15 +26,15 @@ def test_npy_vector_matrix_mean(default_rng):
     ar_2d = default_rng.integers(0, 10, size=(10, 20))
     # check that 1D result is same when using ndarray.mean
     np.testing.assert_allclose(
-        _linreg.EXPOSED_npy_vector_matrix_mean(ar_1d), ar_1d.mean()
+        _linreg_exposed.npy_vector_matrix_mean(ar_1d), ar_1d.mean()
     )
     # check that the 2D result is the same when using ndarray.mean
     np.testing.assert_allclose(
-        _linreg.EXPOSED_npy_vector_matrix_mean(ar_2d), ar_2d.mean(axis=0)
+        _linreg_exposed.npy_vector_matrix_mean(ar_2d), ar_2d.mean(axis=0)
     )
     # check that ValueError is raised when passed higher-dimension ndarray
     with pytest.raises(ValueError, match="ar must be 1D or 2D only"):
-        _linreg.EXPOSED_npy_vector_matrix_mean(
+        _linreg_exposed.npy_vector_matrix_mean(
             default_rng.random(size=(3, 2, 5))
         )
 
@@ -59,7 +54,7 @@ def test_compute_intercept_single(lr_single):
     y_mean = y.mean()
     # compute the intercept and check that it is close to the true intercept
     np.testing.assert_allclose(
-        _linreg.EXPOSED_compute_intercept(coef_, X_mean, y_mean),
+        _linreg_exposed.compute_intercept(coef_, X_mean, y_mean),
         intercept_, rtol=1e-2
     )
 
@@ -79,6 +74,6 @@ def test_compute_intercept_multi(lr_multi):
     y_mean = y.mean(axis=0)
     # compute the intercept and check that it is close to the true intercept
     np.testing.assert_allclose(
-        _linreg.EXPOSED_compute_intercept(coef_, X_mean, y_mean),
+        _linreg_exposed.compute_intercept(coef_, X_mean, y_mean),
         intercept_, rtol=1e-2
     )
