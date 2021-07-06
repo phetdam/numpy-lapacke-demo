@@ -181,7 +181,7 @@ def _setup():
         author="Derek Huang",
         author_email="djh458@stern.nyu.edu",
         license="MIT",
-        url="https://github.com/phetdam/scipy_fastmin",
+        url="https://github.com/phetdam/npy_lapacke_demo",
         packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1", ["scipy>=1.5.2"]],
