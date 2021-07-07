@@ -267,13 +267,58 @@ tuple_prepend_single(PyObject *x, PyTupleObject *old_tp)
 }
 
 /**
+ * Call the objective function provided to `mnewton` with args and get loss.
+ * 
+ * @param fun `PyObject *` to a callable, the objective function. Should have
+ *     signature `fun(x, *args[1:])` and return a scalar or a 2-tuple. If
+ *     returning a 2-tuple, then it should have the form `(loss, grad)`. Within
+ *     the function, improper return values will be checked.
+ * @param args `PyTupleObject *` giving the arguments to pass to `fun`, where
+ *     the first argument must be the current parameter guess, shape
+ *     `(n_features,)` with type `NPY_DOUBLE`, with at least
+ *     `NPY_ARRAY_IN_ARRAY` flags present.
+ * @returns `PyObject *` that is either a `PyFloatObject *` or a subtype on 
+ *     success that gives the objective value, `NULL` with exception on error.
+ */
+static PyObject *
+loss_only_fun_call(PyObject *fun, PyTupleObject *args)
+{
+  // return value from fun and temp value
+  PyObject *res, *temp_o;
+  // call fun with args. NULL on error
+  res = PyObject_CallObject(fun, (PyObject *) args);
+  if (res == NULL) {
+    return NULL;
+  }
+  // if res is PyTupleObject *, get only the loss (first item)
+  if (PyTuple_Check(res)) {
+    temp_o = res;
+    res = PyTuple_GET_ITEM(temp_o, 0);
+    // Py_INCREF since ref is borrowed + clean up temp_o
+    Py_INCREF(res);
+    Py_DECREF(temp_o);
+  }
+  // if res is not PyFloatObject * or subclass, error.
+  if (!PyFloat_Check(res)) {
+    PyErr_SetString(
+      PyExc_ValueError, "fun must return either float or (loss, grad), where "
+      "loss is the float objective value of the function at x"
+    );
+    Py_DECREF(res);
+    return NULL;
+  }
+  // else all checks have passed so return res
+  return res;
+}
+
+/**
  * Internal function for computing objective and gradient values with args.
  * 
  * The return values of the objective `fun` and gradient function `jac` are
  * checked to ensure that they are appropriate, i.e. that `fun` returns a
- * `PyFloatObject *` and that `jac` (if callable) has output that can be
- * converted to a `NPY_DOUBLE` ndarray, flags `NPY_ARRAY_IN_ARRAY`, with shape
- * `(n_features,)` to match the shape of the current parameter guess.
+ * `PyFloatObject *` or subclass and that `jac` (if callable) has output that
+ * can be converted to a `NPY_DOUBLE` ndarray, flags `NPY_ARRAY_IN_ARRAY`, with
+ * shape `(n_features,)` to match the shape of the current parameter guess.
  * 
  * @param fun `PyObject *` to a callable, the objective function. Should have
  *     signature `fun(x, *args[1:])` and return a scalar.
@@ -770,11 +815,14 @@ compute_mnewton_descent(
   if (d_ar == NULL) {
     goto except_lower;
   }
-  // get data pointer to d_ar's underlying data and copy jac's data to d_ar.
-  // note that size of jac, d_ar should be identical.
+  /**
+   * get data pointer to d_ar's underlying data and copy jac's data to d_ar.
+   * note that size of jac, d_ar should be identical and that we must negate
+   * the values from jac since the RHS is the negative gradient.
+   */
   d_data = (double *) PyArray_DATA(d_ar);
   for (npy_intp i = 0; i < PyArray_SIZE(jac); i++) {
-    d_data[i] = jac_data[i];
+    d_data[i] = -jac_data[i];
   }
   // solve system using packed lower Cholesky factor and jac's data in d_data
   lpk_status = LAPACKE_dpptrs(
@@ -797,6 +845,132 @@ except_d_ar:
 except_lower:
   PyMem_RawFree((void *) lower);
   return NULL;
+}
+
+/**
+ * Backtracking line search using the Armijo condition.
+ * 
+ * `compute_loss_grad` provides checking of the `fun` objective and `jac`
+ * gradient function return values. All NumPy Arrays are type `NPY_DOUBLE`
+ * with at least `NPY_ARRAY_IN_ARRAY` flags. No input checking is done.
+ * 
+ * @param fun `PyObject *` to a callable, the objective function. Should have
+ *     signature `fun(x, *args[1:])` and return a scalar or a 2-tuple. If
+ *     returning a 2-tuple, then it should have the form `(loss, grad)`.
+ * @param args `PyTupleObject *` giving the arguments to pass to `fun` and
+ *     `jac` (if callable), where the first argument (the current parameter
+ *     guess) will be ignored. Will be used to create a similar tuple using
+ *     a new parameter guess and the rest of the args in `args`.
+ * @param x `PyArrayObject *` current parameter guess, shape `(n_features,)`.
+ * @param fun_x `PyObject *` current objective function value. Must be a
+ *     `PyFloatObject *` or a subclass of `PyFloatObject *`.
+ * @param jac_x `PyArrayObject *` current gradient value, shape `(n_features,)`
+ * @param d_x `PyArrayObject *` giving the relevant descent direction. Must be
+ *     the same shape as `jac_x`, i.e. `(n_features,)`.
+ * @param eta0 `double` Initial starting step size to consider. For Newton/
+ *     quasi-Newton methods, this value should always be set to 1.
+ * @param alpha `double` controlling how strict the sufficient decrease
+ *     condition is. Increase to require more decrease.
+ * @param gamma `double` that deflates the step size each iteration. Decrease
+ *     to more quickly deflate the step size.
+ * @returns `double` positive step size to use for the line search update. On
+ *     error, exactly 0 will be returned.
+ */
+static double
+armijo_backtrack_search(
+  PyObject *fun, PyTupleObject *args,
+  PyArrayObject *x, PyObject *fun_x, PyArrayObject *jac_x,
+  PyArrayObject *d_x, double eta0, double alpha, double gamma
+)
+{
+  // NumPy array to hold the trial point computed each iteration
+  PyArrayObject *x_new;
+  // current and new function values, alpha-scaled inner product of gradient
+  // jac_x with d_x, data pointers for x, x_new, d_x, jac_x, current step size
+  double f_old, f_new, alpha_dot, *x_data, *x_new_data, *d_data, *jac_data, eta;
+  alpha_dot = 0;
+  eta = eta0;
+  // number of features in jac_x
+  npy_intp n_features;
+  // new arguments to pass to fun, will be same as (x_new, *args[1:]), and the
+  // number of arguments in args and new_args
+  PyTupleObject *new_args;
+  Py_ssize_t n_args;
+  // borrowed ref to ith element of args and new Python objective value
+  PyObject *args_i, *fun_x_new;
+  // convert the Python current function value to double (no check needed) and
+  // get the number of optimization variables (no check here)
+  f_old = PyFloat_AS_DOUBLE(fun_x);
+  n_features = PyArray_SIZE(jac_x);
+  // RHS of Armijo condition requires alpha-scaled inner product of jac_x, d_x.
+  // get data pointers for jac_x, d_x and compute the scaled inner product.
+  jac_data = (double *) PyArray_DATA(jac_x);
+  d_data = (double *) PyArray_DATA(d_x);
+  for (npy_intp i = 0; i < n_features; i++) {
+    alpha_dot += jac_data[i] * d_data[i];
+  }
+  alpha_dot *= alpha;
+  // allocate memory for x_new. use same dims as x/jac_x. NULL on error.
+  x_new = (PyArrayObject *) PyArray_SimpleNew(1, PyArray_DIMS(x), NPY_DOUBLE);
+  if (x_new == NULL) {
+    return 0;
+  }
+  // get x, x_new data pointers and fill x_new with values of x + eta * d_x
+  x_data = (double *) PyArray_DATA(x);
+  x_new_data = (double *) PyArray_DATA(x_new);
+  for (npy_intp i = 0; i < n_features; i++) {
+    x_new_data[i] = x_data[i] + eta * d_data[i];
+  }
+  // create new tuple the same shape as args and with same arguments, except
+  // replacing x with x_new as the first parameter.
+  n_args = PyTuple_GET_SIZE(args);
+  new_args = (PyTupleObject *) PyTuple_New(n_args);
+  if (new_args == NULL) {
+    goto except_x_new;
+  }
+  // set new_args with x_new and args of args[1:]. Py_INCREF since refs stolen
+  Py_INCREF(x_new);
+  PyTuple_SET_ITEM(new_args, 0, (PyObject *) x_new);
+  for (Py_ssize_t i = 1; i < n_args; i++) {
+    args_i = PyTuple_GET_ITEM(args, i);
+    Py_INCREF(args_i);
+    PyTuple_SET_ITEM(new_args, i, args_i);
+  }
+  // compute new Python objective function value using new_args. NULL on error.
+  fun_x_new = loss_only_fun_call(fun, new_args);
+  if (fun_x_new == NULL) {
+    goto except_new_args;
+  }
+  // returned fun_x_new is known to be PyFloatObject * or subclass, so get
+  // double value. now fun_x_new unneeded, so Py_DECREF it.
+  f_new = PyFloat_AS_DOUBLE(fun_x_new);
+  Py_DECREF(fun_x_new);
+  // main loop: loop until Armijo condition met
+  while (f_new > f_old + eta * alpha_dot) {
+    // shrink eta by gamma
+    eta *= gamma;
+    // update values of x_new using new eta, x, d_x
+    for (npy_intp i = 0; i < n_features; i++) {
+      x_new_data[i] = x_data[i] + eta * d_data[i];
+    }
+    // recompute objective function value and get double value into f_new
+    fun_x_new = loss_only_fun_call(fun, new_args);
+    if (fun_x_new == NULL) {
+      goto except_new_args;
+    }
+    f_new = PyFloat_AS_DOUBLE(fun_x_new);
+    Py_DECREF(fun_x_new);
+  }
+  // done, so clean up and return eta
+  Py_DECREF(new_args);
+  Py_DECREF(x_new);
+  return eta;
+// clean up on exceptions
+except_new_args:
+  Py_DECREF(new_args);
+except_x_new:
+  Py_DECREF(x_new);
+  return 0;
 }
 
 // docstring for mnewton
@@ -898,6 +1072,10 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   PyArrayObject *temp_ar;
   PyTupleObject *temp_tp;
   PyObject *res;
+  // data pointers for d_x (descent direction), x (current guess)
+  double *x_data, *d_data;
+  // number of features/optimization variables
+  npy_intp n_features;
   /**
    * scipy.optimize.minimize requires that custom minimizers accept the
    * arguments fun, args (fun_args), jac, hess, hessp, bounds, constraints,
@@ -949,8 +1127,10 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   }
   // on success, overwrite x with temp_ar (original ref borrowed, no Py_DECREF)
   x = temp_ar;
+  // get number of features/optimization variables
+  n_features = PyArray_SIZE(x);
   // x0 must not be empty and must have shape (n_features,)
-  if (PyArray_SIZE(x) == 0) {
+  if (n_features == 0) {
     PyErr_SetString(PyExc_ValueError, "x0 must be nonempty");
     goto except_x;
   }
@@ -1039,16 +1219,23 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     if (d_x == NULL) {
       goto except_hess_x;
     }
-    // TODO: use Armijo rule to compute step size with backtracking line search
-    /*
-    eta = armijo_backtrack(fun, jac, fun_args, d_x, alpha, gamma);
-    */
-    // TODO: update values in x (break out into separate routine?)
-
-    // after updating x, clean up unneeded d_x
+    // use Armijo rule to compute step size with backtracking line search. eta
+    // is 0 if there is an error encountered during the routine.
+    eta = armijo_backtrack_search(
+      fun, fun_args, x, fun_x, jac_x, d_x, 1, alpha, gamma
+    );
+    if (eta == 0.) {
+      goto except_d_x;
+    }
+    // get data pointers for x, d_x + update values in x
+    x_data = (double *) PyArray_DATA(x);
+    d_data = (double *) PyArray_DATA(d_x);
+    for (npy_intp i = 0; i < n_features; i++) {
+      x_data[i] += eta * d_data[i];
+    }
+    // after updating x, clean up unneeded d_x, fun_x, jac_x, hess_x. we use
+    // updated x to recompute fun_x, jac_x, hess_x.
     Py_DECREF(d_x);
-    // done with fun_x, jac_x, hess_x, so we compute next values of fun_x,
-    // jac_x, hess_x using updated x. can Py_DECREF all of these.
     Py_DECREF(fun_x);
     Py_DECREF(jac_x);
     Py_DECREF(hess_x);
@@ -1093,6 +1280,8 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   Py_DECREF(x);
   return res;
 // clean up on error
+except_d_x:
+  Py_DECREF(d_x);
 except_hess_x:
   Py_DECREF(hess_x);
 except_fun_jac_x:
