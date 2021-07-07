@@ -407,6 +407,96 @@ except_x:
   return NULL;
 }
 
+// docstring for compute_hessian wrapper
+PyDoc_STRVAR(
+  compute_hessian_doc,
+  "compute_hessian(hess, x, args=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal function `compute_hessian`."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "hess : function\n"
+  "    Hessian function with signature hess(x, *args). Must return a\n"
+  "    numpy.ndarray with type NPY_DOUBLE and flags NPY_ARRAY_CARRAY or\n"
+  "    something convertible as such. Returned array should have shape\n"
+  "    (n_features, n_features) (not checked).\n"
+  "x : numpy.ndarray\n"
+  "    Point to evaluate fun, jac at. Must have type NPY_DOUBLE and flags\n"
+  "    NPY_ARRAY_IN_ARRAY or be convertible to such. x is assumed to have\n"
+  "    shape (n_features,) but no checks are performed.\n"
+  "args : tuple, default=None\n"
+  "    Additional positional arguments to pass to hess."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "numpy.ndarray\n"
+  "    Current value of the Hessian function at x"
+);
+// argument names known to compute_hessian
+static const char *compute_hessian_argnames[] = {
+  "hess", "x", "args", NULL
+};
+/**
+ * Python-accessible wrapper for `compute_loss_grad`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
+ * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
+ */
+static PyObject *
+compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // hessian, x (parameter guess), result of compute_hessian
+  PyObject *hess;
+  PyArrayObject *x, *res;
+  // positional args for fun, jac containing x as first element. fun_args must
+  // be NULL since it may not be modified by PyArg_ParseTupleAndKeywords.
+  PyTupleObject *fun_args = NULL;
+  // parse arguments using PyArg_ParseTupleAndKeywords
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OO|O!", (char **) compute_hessian_argnames,
+      &hess, &x, &PyTuple_Type, &fun_args
+    )
+  ) {
+    return NULL;
+  }
+  // success. check that hess is callable
+  if (!PyCallable_Check(hess)) {
+    PyErr_SetString(PyExc_TypeError, "hess must be callable");
+    return NULL;
+  }
+  // convert x to numpy.ndarray with NPY_DOUBLE type, NPY_ARRAY_IN_ARRAY flags
+  x = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (x == NULL) {
+    return NULL;
+  }
+  // use Py__mnewton_tuple_prepend_single to get fun_args. NULL on error
+  fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
+  if (fun_args == NULL) {
+    goto except_x;
+  }
+  // call Py__mnewton_compute_hessian and get res (NULL on error)
+  res = Py__mnewton_compute_hessian(hess, fun_args);
+  if (res == NULL) {
+    goto except_fun_args;
+  }
+  // if no problems, clean up and return
+  Py_DECREF(fun_args);
+  Py_DECREF(x);
+  return (PyObject *) res;
+// clean up on errors
+except_fun_args:
+  Py_DECREF(fun_args);
+except_x:
+  Py_DECREF(x);
+  return NULL;
+}
+
 // docstring for populate_OptimizeResult wrapper
 PyDoc_STRVAR(
   populate_OptimizeResult_doc,
@@ -602,93 +692,77 @@ except_x:
   return NULL;
 }
 
-// docstring for compute_hessian wrapper
+// docstring for lower_packed_copy wrapper
 PyDoc_STRVAR(
-  compute_hessian_doc,
-  "compute_hessian(hess, x, args=None)"
+  lower_packed_copy_doc,
+  "lower_packed_copy(mat)"
   "\n--\n\n"
-  "Python-accessible wrapper for internal function `compute_hessian`."
+  "Python-accessible wrapper for internal function `lower_packed_copy`."
   "\n\n"
   "Parameters\n"
   "----------\n"
-  "hess : function\n"
-  "    Hessian function with signature hess(x, *args). Must return a\n"
-  "    numpy.ndarray with type NPY_DOUBLE and flags NPY_ARRAY_CARRAY or\n"
-  "    something convertible as such. Returned array should have shape\n"
-  "    (n_features, n_features) (not checked).\n"
-  "x : numpy.ndarray\n"
-  "    Point to evaluate fun, jac at. Must have type NPY_DOUBLE and flags\n"
-  "    NPY_ARRAY_IN_ARRAY or be convertible to such. x is assumed to have\n"
-  "    shape (n_features,) but no checks are performed.\n"
-  "args : tuple, default=None\n"
-  "    Additional positional arguments to pass to hess."
+  "mat : numpy.ndarray\n"
+  "    Symmetric (not checked) matrix shape (n, n). Must be convertible to\n"
+  "    type NPY_DOUBLE with flags NPY_ARRAY_IN_ARRAY, i.e. C-contiguous and\n"
+  "    behaved, although not necessarily writable."
   "\n\n"
   "Returns\n"
   "-------\n"
   "numpy.ndarray\n"
-  "    Current value of the Hessian function at x"
+  "    Lower triangle of mat stored as a 1D array, type NPY_DOUBLE."
 );
-// argument names known to compute_hessian
-static const char *compute_hessian_argnames[] = {
-  "hess", "x", "args", NULL
-};
 /**
- * Python-accessible wrapper for `compute_loss_grad`.
+ * Python-accessible wrapper for `lower_packed_copy`.
  * 
  * @param self `PyObject *` module (unused)
- * @param args `PyObject *` tuple of positional args
- * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
+ * @param arg `PyObject *` single positional arg
  * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
  */
 static PyObject *
-compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
+lower_packed_copy(PyObject *self, PyObject *arg)
 {
-  // hessian, x (parameter guess), result of compute_hessian
-  PyObject *hess;
+  // original symmetric matrix and its packed lower triangle
+  PyArrayObject *mat, *lower;
   PyArrayObject *x, *res;
-  // positional args for fun, jac containing x as first element. fun_args must
-  // be NULL since it may not be modified by PyArg_ParseTupleAndKeywords.
-  PyTupleObject *fun_args = NULL;
-  // parse arguments using PyArg_ParseTupleAndKeywords
-  if (
-    !PyArg_ParseTupleAndKeywords(
-      args, kwargs, "OO|O!", (char **) compute_hessian_argnames,
-      &hess, &x, &PyTuple_Type, &fun_args
-    )
-  ) {
+  // number of rows/columns
+  npy_intp n_features;
+  // pointers to data of mat and lower
+  double *mat_data, *lower_data;
+  // attempt to convert arg, the original matrix object (may not be ndarray),
+  // into NPY_DOUBLE type and NPY_ARRAY_IN_ARRAY flags
+  mat = PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  if (mat == NULL) {
     return NULL;
   }
-  // success. check that hess is callable
-  if (!PyCallable_Check(hess)) {
-    PyErr_SetString(PyExc_TypeError, "hess must be callable");
-    return NULL;
+  // ensure that mat is 2D + get number of rows
+  if (PyArray_NDIM(mat) != 2) {
+    PyErr_SetString(PyExc_ValueError, "mat must be 2D");
+    goto except_mat;
   }
-  // convert x to numpy.ndarray with NPY_DOUBLE type, NPY_ARRAY_IN_ARRAY flags
-  x = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (x == NULL) {
-    return NULL;
+  n_features = PyArray_DIM(mat, 0);
+  // check that mat is square (symmetry not checked)
+  if (PyArray_DIM(mat, 1) != n_features) {
+    PyErr_SetString(PyExc_ValueError, "mat must have shape (n, n)");
+    goto except_mat;
   }
-  // use Py__mnewton_tuple_prepend_single to get fun_args. NULL on error
-  fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
-  if (fun_args == NULL) {
-    goto except_x;
+  // allocate new ndarray for lower, type NPY_DOUBLE, flags NPY_ARRAY_CARRAY.
+  // borrow the dims of mat since the first dimension is the same.
+  lower = PyArray_SimpleNew(1, PyArray_DIMS(mat), NPY_DOUBLE);
+  if (lower == NULL) {
+    goto except_mat;
   }
-  // call Py__mnewton_compute_hessian and get res (NULL on error)
-  res = Py__mnewton_compute_hessian(hess, fun_args);
-  if (res == NULL) {
-    goto except_fun_args;
-  }
-  // if no problems, clean up and return
-  Py_DECREF(fun_args);
-  Py_DECREF(x);
-  return (PyObject *) res;
+  // get data pointers and call Py__mnewton_lower_packed_copy
+  mat_data = (double *) PyArray_DATA(mat);
+  lower_data = (double *) PyArray_DATA(lower);
+  Py__mnewton_lower_packed_copy(mat_data, lower_data, n_features);
+  // clean up unneeded mat and return
+  Py_DECREF(mat);
+  return (PyObject *) lower;
 // clean up on errors
-except_fun_args:
-  Py_DECREF(fun_args);
-except_x:
-  Py_DECREF(x);
+except_lower:
+  Py_DECREF(lower);
+except_mat:
+  Py_DECREF(mat);
   return NULL;
 }
 
@@ -728,6 +802,11 @@ static PyMethodDef _mnewton_exposed_methods[] = {
     "populate_OptimizeResult",
     (PyCFunction) populate_OptimizeResult,
     METH_VARARGS | METH_KEYWORDS, populate_OptimizeResult_doc
+  },
+  {
+    "lower_packed_copy",
+    (PyCFunction) lower_packed_copy,
+    METH_O, lower_packed_copy_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}

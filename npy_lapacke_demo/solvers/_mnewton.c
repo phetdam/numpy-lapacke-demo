@@ -633,7 +633,7 @@ except_opt_mod:
  * @param n `npy_intp` giving number of rows/columns in `mat`.
  */
 static void
-symm_packed_copy(const double *mat, double *matp, npy_intp n)
+lower_packed_copy(const double *mat, double *matp, npy_intp n)
 {
   for (npy_intp i = 0; i < n; i++) {
     for (npy_intp j = 0; j < i + 1; j++) {
@@ -731,7 +731,7 @@ compute_mnewton_descent(
   // decomposition (it eventually will be), repeat
   while (1) {
     // copy hess into lower, which stores in packed format
-    symm_packed_copy(hess_data, lower, n_features);
+    lower_packed_copy(hess_data, lower, n_features);
     // modify diagonal elements of lower with tau
     for (npy_intp i = 0; i < n_features; i++) {
       lower[(i + 1) * i / 2 + i] += tau;
@@ -763,10 +763,10 @@ compute_mnewton_descent(
    * now that we have an acceptable value for lower, the lower Cholesky factor
    * of the diagonally modified Hessian, we can solve for descent direction. we
    * first allocate the solution array, d_ar. NPY_DOUBLE type. note that the
-   * default flags are NPY_ARRAY_DEFAULT, i.e. NPY_ARRAY_CARRAY.
+   * default flags are NPY_ARRAY_DEFAULT, i.e. NPY_ARRAY_CARRAY. we can just
+   * borrow the dims from hess, which is shape (n_features, n_features).
    */
-  npy_intp d_dims[] = {n_features};
-  d_ar = (PyArrayObject *) PyArray_SimpleNew(1, d_dims, NPY_DOUBLE);
+  d_ar = (PyArrayObject *) PyArray_SimpleNew(1, PyArray_DIMS(hess), NPY_DOUBLE);
   if (d_ar == NULL) {
     goto except_lower;
   }
@@ -894,9 +894,10 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   double beta = 1e-3;
   double gamma = 0.8;
   double tau_factor = 2;
-  // temporary variables
+  // temporary variables and OptimizeResult that will be returned
   PyArrayObject *temp_ar;
   PyTupleObject *temp_tp;
+  PyObject *res;
   /**
    * scipy.optimize.minimize requires that custom minimizers accept the
    * arguments fun, args (fun_args), jac, hess, hessp, bounds, constraints,
@@ -1077,7 +1078,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     n_iter++;
   }
   // optimization is completed so populate the OptimizeResult. NULL on error
-  PyObject *res = populate_OptimizeResult(
+  res = populate_OptimizeResult(
     x, 1, 0, "Optimization terminated successfully.", fun_x, jac_x, hess_x,
     NULL, n_fev, n_jev, n_hev, n_iter, NULL
   );
