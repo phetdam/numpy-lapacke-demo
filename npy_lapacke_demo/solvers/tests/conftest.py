@@ -182,7 +182,8 @@ def qp_yesargs(qp_hess_a, request):
         The Hessian of the objective, returning numpy.ndarray shape (5, 5).
     f_args : tuple
         The additional positional arguments passed to the objective, gradient,
-        Hessian functions. First element is the Hessian matrix, second
+        Hessian functions. First element is the Hessian matrix, second element
+        gives the linear terms of the objective function.
     """
     # get Hessian, linear terms, n_features from _qp_hess_a
     hess, a, n_features = qp_hess_a

@@ -171,14 +171,60 @@ def test_tuple_prepend_single():
     assert test_func(x, old_tp=old_tp) == (x, *old_tp)
 
 
-@pytest.mark.skip(reason="not implemented yet")
-def test_compute_loss_grad_noargs(qp_noargs):
-    pass
+def test_compute_loss_grad_noargs(qp_noargs, default_rng):
+    """Test the internal compute_loss_grad function on model inputs.
+
+    Tests the case where the objective and gradient take no args.
+
+    Parameters
+    ----------
+    qp_noargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get objective, initial guess, gradient from qp_noargs
+    f_obj, x0, f_grad, _ = qp_noargs
+    # use x0's shape to get random value to evaluate f_obj, f_grad at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected loss and gradient and actual loss and gradient. when
+    # f_grad is True, then f_obj returns both loss and grad.
+    if f_grad == True:
+        loss, grad = f_obj(x)
+    else:
+        loss, grad = f_obj(x), f_grad(x)
+    loss_hat, grad_hat = _mnewton_exposed.compute_loss_grad(f_obj, f_grad, x)
+    # check that losses and grads are essentially the same
+    np.testing.assert_allclose(loss_hat, loss)
+    np.testing.assert_allclose(grad_hat, grad)
 
 
-@pytest.mark.skip(reason="not implemented yet")
-def test_compute_loss_grad_yesargs(qp_yesargs):
-    pass
+def test_compute_loss_grad_yesargs(qp_yesargs, default_rng):
+    """Test the internal compute_loss_grad function on model inputs.
+
+    Tests the case where the objective and gradient take args.
+
+    Parameters
+    ----------
+    qp_yesargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get objective, initial guess, gradient, args from qp_noargs
+    f_obj, x0, f_grad, _, f_args = qp_yesargs
+    # use x0's shape to get random value to evaluate f_obj, f_grad at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected loss and gradient and actual loss and gradient. when
+    # f_grad is True, then f_obj returns both loss and grad.
+    if f_grad == True:
+        loss, grad = f_obj(x, *f_args)
+    else:
+        loss, grad = f_obj(x, *f_args), f_grad(x, *f_args)
+    res = _mnewton_exposed.compute_loss_grad(f_obj, f_grad, x, args=f_args)
+    # check that losses and grads are essentially the same
+    np.testing.assert_allclose(res[0], loss)
+    np.testing.assert_allclose(res[1], grad)
 
 
 @pytest.mark.parametrize("with_optional", [True, False])
