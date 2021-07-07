@@ -723,7 +723,6 @@ lower_packed_copy(PyObject *self, PyObject *arg)
 {
   // original symmetric matrix and its packed lower triangle
   PyArrayObject *mat, *lower;
-  PyArrayObject *x, *res;
   // number of rows/columns
   npy_intp n_features;
   // pointers to data of mat and lower
@@ -759,8 +758,6 @@ lower_packed_copy(PyObject *self, PyObject *arg)
   Py_DECREF(mat);
   return (PyObject *) lower;
 // clean up on errors
-except_lower:
-  Py_DECREF(lower);
 except_mat:
   Py_DECREF(mat);
   return NULL;
