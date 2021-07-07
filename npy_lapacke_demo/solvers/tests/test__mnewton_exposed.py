@@ -211,12 +211,12 @@ def test_compute_loss_grad_yesargs(qp_yesargs, default_rng):
     default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
-    # get objective, initial guess, gradient, args from qp_noargs
+    # get objective, initial guess, gradient, args from qp_yesargs
     f_obj, x0, f_grad, _, f_args = qp_yesargs
     # use x0's shape to get random value to evaluate f_obj, f_grad at
     x = default_rng.uniform(size=x0.shape)
-    # compute expected loss and gradient and actual loss and gradient. when
-    # f_grad is True, then f_obj returns both loss and grad.
+    # compute expected loss and gradient and actual loss and gradient, with
+    # args. when f_grad is True, then f_obj returns both loss and grad.
     if f_grad == True:
         loss, grad = f_obj(x, *f_args)
     else:
@@ -225,6 +225,52 @@ def test_compute_loss_grad_yesargs(qp_yesargs, default_rng):
     # check that losses and grads are essentially the same
     np.testing.assert_allclose(res[0], loss)
     np.testing.assert_allclose(res[1], grad)
+
+
+def test_compute_hessian_noargs(qp_noargs, default_rng):
+    """Test the internal compute_hessian function on model inputs.
+
+    Tests the case where the Hessian function does not take args.
+
+    Parameters
+    ----------
+    qp_noargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get initial guess and hessian function from qp_noargs
+    _, x0, _, f_hess = qp_noargs
+    # use x0's shape to get random value to evaluate f_obj, f_grad at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected Hessian and actual Hessian
+    hess = f_hess(x)
+    hess_hat = _mnewton_exposed.compute_hessian(f_hess, x)
+    # check that Hessians are essentially the same
+    np.testing.assert_allclose(hess_hat, hess)
+
+
+def test_compute_hessian_yesargs(qp_yesargs, default_rng):
+    """Test the internal compute_hessian function on model inputs.
+
+    Tests the case where the Hessian function does take args.
+
+    Parameters
+    ----------
+    qp_yesargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get initial guess and hessian function from qp_yesargs
+    _, x0, _, f_hess, f_args = qp_yesargs
+    # use x0's shape to get random value to evaluate f_obj, f_grad at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected Hessian and actual Hessian, with args
+    hess = f_hess(x, *f_args)
+    hess_hat = _mnewton_exposed.compute_hessian(f_hess, x, args=f_args)
+    # check that Hessians are essentially the same
+    np.testing.assert_allclose(hess_hat, hess)
 
 
 @pytest.mark.parametrize("with_optional", [True, False])
