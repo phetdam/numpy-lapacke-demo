@@ -1163,6 +1163,8 @@ PyInit__mnewton(void)
     (void *) compute_hessian;
   Py__mnewton_API[Py__mnewton_populate_OptimizeResult_NUM] = \
     (void *) populate_OptimizeResult;
+  Py__mnewton_API[Py__mnewton_lower_packed_copy_NUM] = \
+    (void *) lower_packed_copy;
   // create capsule containing address to C array API. PyModule_AddObject only
   // steals ref on success, so we have to XDECREF, DECREF as needed on error
   c_api_obj = PyCapsule_New(

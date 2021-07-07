@@ -729,7 +729,7 @@ lower_packed_copy(PyObject *self, PyObject *arg)
   double *mat_data, *lower_data;
   // attempt to convert arg, the original matrix object (may not be ndarray),
   // into NPY_DOUBLE type and NPY_ARRAY_IN_ARRAY flags
-  mat = PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
+  mat = (PyArrayObject *) PyArray_FROM_OTF(arg, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);
   if (mat == NULL) {
     return NULL;
   }
@@ -745,8 +745,9 @@ lower_packed_copy(PyObject *self, PyObject *arg)
     goto except_mat;
   }
   // allocate new ndarray for lower, type NPY_DOUBLE, flags NPY_ARRAY_CARRAY.
-  // borrow the dims of mat since the first dimension is the same.
-  lower = PyArray_SimpleNew(1, PyArray_DIMS(mat), NPY_DOUBLE);
+  // lower only needs n_features * (n_features + 1) / 2 elements.
+  npy_intp lower_dims[] = {n_features * (n_features + 1) / 2};
+  lower = (PyArrayObject *) PyArray_SimpleNew(1, lower_dims, NPY_DOUBLE);
   if (lower == NULL) {
     goto except_mat;
   }

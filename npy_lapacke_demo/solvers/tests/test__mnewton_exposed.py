@@ -331,3 +331,14 @@ def test_populate_OptimizeResult(default_rng, with_optional):
         assert res.nhev == n_hev
         assert np.array_equal(res.hess_inv, hess_inv)
         assert res.maxcv == maxcv
+
+
+def test_lower_packed_copy():
+    """Test the internal lower_packed_copy function on a model input."""
+    # arbitrary square matrix shape (3, 3) and its packed lower triangle
+    mat = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    lmatp = np.array([1, 4, 5, 7, 8, 9])
+    # compute packed lower triangle of mat using lower_packed_copy
+    lmatp_hat = _mnewton_exposed.lower_packed_copy(mat)
+    # check that lower_packed_copy gives the same result as expected
+    np.testing.assert_allclose(lmatp_hat, lmatp)
