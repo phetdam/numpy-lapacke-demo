@@ -697,7 +697,7 @@ lower_packed_copy(const double *mat, double *matp, npy_intp n)
  * Saves memory by modifying a copy of only the lower triangular portion of the
  * Hessian matrix provided to the function, reducing storage cost.
  * 
- * Hesian modification algorithm from pg 51 of Nocedal and Wright.
+ * Hessian modification algorithm from pg 51 of Nocedal and Wright.
  * 
  * @param hess `PyArrayObject *` Hessian matrix, type `NPY_DOUBLE`, flags
  *     `NPY_ARRAY_CARRAY`, shape `(n_features, n_features)`. If not
@@ -708,7 +708,8 @@ lower_packed_copy(const double *mat, double *matp, npy_intp n)
  *     `NPY_ARRAY_CARRAY`, shape `(n_features,)`.
  * @param beta `double` giving the minimum value to add to the diagonal of the
  *     copied lower triangular portion of `hess` during computation of the
- *     lower Cholesky factor of the modified Hessian.
+ *     lower Cholesky factor of the modified Hessian. Nocedal and Wright note
+ *     that `beta` is chosen by heuristic, typically `1e-03`.
  * @param tau_factor `double` to scale the identity matrix added to the Hessian
  *     each iteration. 2 is standard, but larger values can be set to more
  *     quickly (yet more crudely) make a positive definite diagonal
@@ -1170,10 +1171,9 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
     goto except_x;
   }
-  // tau factor must be at least 2. actually, greater than 1 is the minimum
-  // requirement, but this is typically too slow.
-  if (tau_factor < 2) {
-    PyErr_SetString(PyExc_ValueError, "tau_factor must be at least 2");
+  // tau_factor must be greater than 1. typically we want tau_factor >= 2.
+  if (tau_factor <= 1) {
+    PyErr_SetString(PyExc_ValueError, "tau_factor must be greater than 1");
     goto except_x;
   }
   /**
