@@ -1,7 +1,7 @@
 __doc__ = """Tests for internal _mnewton functions.
 
 The internal C extension functions in _mnewton are exposed using their
-respective Python-accessible wrappers in _mnewton_exposed.
+respective Python-accessible wrappers in _mnewton_internal.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
@@ -10,7 +10,7 @@ from functools import partial
 import numpy as np
 import pytest
 
-from .. import _mnewton_exposed
+from .. import _mnewton_internal
 
 # patterns to match for warnings issued by remove_[un]specified_kwargs
 _specified_match = ".+not in kwargs$"
@@ -34,7 +34,7 @@ def test_remove_specified_kwargs_empty(empty_kwargs, warn):
     kwargs, droplist = empty_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton_exposed.remove_specified_kwargs, kwargs, droplist, warn=warn
+        _mnewton_internal.remove_specified_kwargs, kwargs, droplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -64,7 +64,7 @@ def test_remove_specified_kwargs_full(full_kwargs, warn):
     kwargs, droplist = full_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton_exposed.remove_specified_kwargs, kwargs, droplist, warn=warn
+        _mnewton_internal.remove_specified_kwargs, kwargs, droplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -94,7 +94,7 @@ def test_remove_unspecified_kwargs_empty(empty_kwargs, warn):
     kwargs, keeplist = empty_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton_exposed.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+        _mnewton_internal.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
     )
     # for empty kwargs, no warnings should ever be raised + no keys dropped
     assert test_callable() == 0
@@ -117,7 +117,7 @@ def test_remove_unspecified_kwargs_full(full_kwargs, warn):
     kwargs, keeplist = full_kwargs
     # callable with kwargs, droplist, warn already filled in
     test_callable = partial(
-        _mnewton_exposed.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
+        _mnewton_internal.remove_unspecified_kwargs, kwargs, keeplist, warn=warn
     )
     # if warn, expect warnings to be raised. save number of dropped keys.
     if warn:
@@ -153,7 +153,7 @@ def test_npy_frob_norm(default_rng, shape, fortran):
         ar = default_rng.random(size=shape)
     # check that npy_frob_norm has same result as np.linalg.norm
     np.testing.assert_allclose(
-        _mnewton_exposed.npy_frob_norm(ar), np.linalg.norm(ar)
+        _mnewton_internal.npy_frob_norm(ar), np.linalg.norm(ar)
     )
 
 
@@ -164,7 +164,7 @@ def test_tuple_prepend_single():
     # can be any arbitrary tuple as well
     old_tp = ("arbitrary", "tuple")
     # shortens the invocation
-    test_func = _mnewton_exposed.tuple_prepend_single
+    test_func = _mnewton_internal.tuple_prepend_single
     # check that (x,) is returned if old_tp not provided
     assert test_func(x) == (x,)
     # check that the expected result is returned
@@ -193,7 +193,7 @@ def test_compute_loss_grad_noargs(qp_noargs, default_rng):
         loss, grad = f_obj(x)
     else:
         loss, grad = f_obj(x), f_grad(x)
-    loss_hat, grad_hat = _mnewton_exposed.compute_loss_grad(f_obj, f_grad, x)
+    loss_hat, grad_hat = _mnewton_internal.compute_loss_grad(f_obj, f_grad, x)
     # check that losses and grads are essentially the same
     np.testing.assert_allclose(loss_hat, loss)
     np.testing.assert_allclose(grad_hat, grad)
@@ -221,7 +221,7 @@ def test_compute_loss_grad_yesargs(qp_yesargs, default_rng):
         loss, grad = f_obj(x, *f_args)
     else:
         loss, grad = f_obj(x, *f_args), f_grad(x, *f_args)
-    res = _mnewton_exposed.compute_loss_grad(f_obj, f_grad, x, args=f_args)
+    res = _mnewton_internal.compute_loss_grad(f_obj, f_grad, x, args=f_args)
     # check that losses and grads are essentially the same
     np.testing.assert_allclose(res[0], loss)
     np.testing.assert_allclose(res[1], grad)
@@ -245,7 +245,7 @@ def test_compute_hessian_noargs(qp_noargs, default_rng):
     x = default_rng.uniform(size=x0.shape)
     # compute expected Hessian and actual Hessian
     hess = f_hess(x)
-    hess_hat = _mnewton_exposed.compute_hessian(f_hess, x)
+    hess_hat = _mnewton_internal.compute_hessian(f_hess, x)
     # check that Hessians are essentially the same
     np.testing.assert_allclose(hess_hat, hess)
 
@@ -268,7 +268,7 @@ def test_compute_hessian_yesargs(qp_yesargs, default_rng):
     x = default_rng.uniform(size=x0.shape)
     # compute expected Hessian and actual Hessian, with args
     hess = f_hess(x, *f_args)
-    hess_hat = _mnewton_exposed.compute_hessian(f_hess, x, args=f_args)
+    hess_hat = _mnewton_internal.compute_hessian(f_hess, x, args=f_args)
     # check that Hessians are essentially the same
     np.testing.assert_allclose(hess_hat, hess)
 
@@ -307,12 +307,12 @@ def test_populate_OptimizeResult(default_rng, with_optional):
     req_args = (x, success, status, message, fun_x, n_fev, n_iter)
     # if with_optional, pass the optional arguments as well
     if with_optional:
-        res = _mnewton_exposed.populate_OptimizeResult(
+        res = _mnewton_internal.populate_OptimizeResult(
             *req_args, jac_x=jac_x, n_jev=n_jev, hess_x=hess_x, n_hev=n_hev,
             hess_inv=hess_inv, maxcv=maxcv
         )
     else:
-        res = _mnewton_exposed.populate_OptimizeResult(*req_args)
+        res = _mnewton_internal.populate_OptimizeResult(*req_args)
     # check that the required arguments are present as attributes in the
     # return OptimizeResult and that their value has not been changed. note we
     # directly test for equality with floats since no computation is done.
@@ -339,6 +339,6 @@ def test_lower_packed_copy():
     mat = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     lmatp = np.array([1, 4, 5, 7, 8, 9])
     # compute packed lower triangle of mat using lower_packed_copy
-    lmatp_hat = _mnewton_exposed.lower_packed_copy(mat)
+    lmatp_hat = _mnewton_internal.lower_packed_copy(mat)
     # check that lower_packed_copy gives the same result as expected
     np.testing.assert_allclose(lmatp_hat, lmatp)

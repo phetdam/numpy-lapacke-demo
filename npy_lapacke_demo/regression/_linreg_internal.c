@@ -1,5 +1,5 @@
 /**
- * @file _linreg_exposed.c
+ * @file _linreg_internal.c
  * @author Derek Huang <djh458@stern.nyu.edu>
  * @brief Wrappers for internal C functions in `_linreg.c`.
  */
@@ -232,8 +232,8 @@ except:
   return NULL;
 }
 
-// _linreg_exposed methods, possibly including EXTERNAL_* wrappers
-static PyMethodDef _linreg_exposed_methods[] = {
+// _linreg_internal methods, possibly including EXTERNAL_* wrappers
+static PyMethodDef _linreg_internal_methods[] = {
   {
     "npy_vector_matrix_mean",
     (PyCFunction) npy_vector_matrix_mean,
@@ -250,24 +250,24 @@ static PyMethodDef _linreg_exposed_methods[] = {
   {NULL, NULL, 0, NULL}
 };
 
-// _linreg_exposed module definition
-static PyModuleDef _linreg_exposed_module = {
+// _linreg_internal module definition
+static PyModuleDef _linreg_internal_module = {
   PyModuleDef_HEAD_INIT,
   // name, docstring, size = -1 to disable subinterpreter support, methods
-  .m_name = "_linreg_exposed",
+  .m_name = "_linreg_internal",
   .m_doc = "Wrappers for unit testing internal C functions in _linreg.",
   .m_size = -1,
-  .m_methods = _linreg_exposed_methods
+  .m_methods = _linreg_internal_methods
 };
 
 // module initialization function
 PyMODINIT_FUNC
-PyInit__linreg_exposed(void)
+PyInit__linreg_internal(void)
 {
   // import NumPy Array C API. automatically returns NULL on error.
   import_array();
   // import _linreg C API. automatically returns NULL on error.
   import__linreg();
   // create module and return. NULL on error
-  return PyModule_Create(&_linreg_exposed_module);
+  return PyModule_Create(&_linreg_internal_module);
 }

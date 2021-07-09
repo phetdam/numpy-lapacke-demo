@@ -145,8 +145,8 @@ def _get_ext_modules(env):
         ),
         # wrappers for unit testing internal C functions in _linreg.c
         Extension(
-          name="regression._linreg_exposed"  ,
-          sources=[f"{__package__}/regression/_linreg_exposed.c"],
+          name="regression._linreg_internal"  ,
+          sources=[f"{__package__}/regression/_linreg_internal.c"],
           include_dirs=_EXT_INCLUDE_DIRS,
           extra_compile_args=_EXT_COMPILE_ARGS
         ),
@@ -158,8 +158,8 @@ def _get_ext_modules(env):
         ),
         # wrappers for unit testing internal C functions in _mnewton.c
         Extension(
-            name="solvers._mnewton_exposed",
-            sources=[f"{__package__}/solvers/_mnewton_exposed.c"],
+            name="solvers._mnewton_internal",
+            sources=[f"{__package__}/solvers/_mnewton_internal.c"],
             include_dirs=_EXT_INCLUDE_DIRS,
             extra_compile_args=_EXT_COMPILE_ARGS
         )

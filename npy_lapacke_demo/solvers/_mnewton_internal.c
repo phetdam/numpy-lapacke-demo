@@ -1,5 +1,5 @@
 /**
- * @file _mnewton__exposed.c
+ * @file _mnewton_internal.c
  * @author Derek Huang <djh458@stern.nyu.edu>
  * @brief Wrappers for internal C functions in `_mnewton.c`.
  */
@@ -916,8 +916,8 @@ except_hess:
   return NULL;
 }
 
-// _mnewton_exposed methods (wrap internal functions in _mnewton)
-static PyMethodDef _mnewton_exposed_methods[] = {
+// _mnewton_internal methods (wrap internal functions in _mnewton)
+static PyMethodDef _mnewton_internal_methods[] = {
   {
     "remove_specified_kwargs",
     (PyCFunction) remove_specified_kwargs,
@@ -967,24 +967,24 @@ static PyMethodDef _mnewton_exposed_methods[] = {
   {NULL, NULL, 0, NULL}
 };
 
-// _mnewton_exposed module definition
-static PyModuleDef _mnewton_exposed_module = {
+// _mnewton_internal module definition
+static PyModuleDef _mnewton_internal_module = {
   PyModuleDef_HEAD_INIT,
   // name, docstring, size = -1 to disable subinterpreter support, methods
-  .m_name = "_mnewton_exposed",
+  .m_name = "_mnewton_internal",
   .m_doc = "Wrappers for unit testing internal C functions in _mnewton.",
   .m_size = -1,
-  .m_methods = _mnewton_exposed_methods
+  .m_methods = _mnewton_internal_methods
 };
 
 // module initialization function
 PyMODINIT_FUNC
-PyInit__mnewton_exposed(void)
+PyInit__mnewton_internal(void)
 {
   // import NumPy Array C API. automatically returns NULL on error.
   import_array();
   // import _mnewton C API.  automatically returns NULL on error.
   import__mnewton();
   // create module and return. NULL on error
-  return PyModule_Create(&_mnewton_exposed_module);
+  return PyModule_Create(&_mnewton_internal_module);
 }
