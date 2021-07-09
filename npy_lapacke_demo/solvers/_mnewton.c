@@ -1354,6 +1354,10 @@ PyInit__mnewton(void)
     (void *) populate_OptimizeResult;
   Py__mnewton_API[Py__mnewton_lower_packed_copy_NUM] = \
     (void *) lower_packed_copy;
+  Py__mnewton_API[Py__mnewton_compute_mnewton_descent_NUM] = \
+    (void *) compute_mnewton_descent;
+  Py__mnewton_API[Py__mnewton_armijo_backtrack_search_NUM] = \
+    (void *) armijo_backtrack_search;
   // create capsule containing address to C array API. PyModule_AddObject only
   // steals ref on success, so we have to XDECREF, DECREF as needed on error
   c_api_obj = PyCapsule_New(

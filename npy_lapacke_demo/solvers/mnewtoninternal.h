@@ -21,7 +21,7 @@
 #include <numpy/arrayobject.h>
 
 // total number of function pointers stored in the void ** C API
-#define Py__mnewton_API_pointers 8
+#define Py__mnewton_API_pointers 10
 
 // API indices for each of the exposed C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs_NUM 0
@@ -32,6 +32,8 @@
 #define Py__mnewton_compute_hessian_NUM 5
 #define Py__mnewton_populate_OptimizeResult_NUM 6
 #define Py__mnewton_lower_packed_copy_NUM 7
+#define Py__mnewton_compute_mnewton_descent_NUM 8
+#define Py__mnewton_armijo_backtrack_search_NUM 9
 
 // in client modules, define the void ** API and the import function.
 // __INTELLISENSE__ always defined in VS Code; allows Intellinse to work here
@@ -64,6 +66,13 @@ static void **Py__mnewton_API;
 #define Py__mnewton_lower_packed_copy \
   (*(void (*)(const double *, double *, npy_intp n)) \
   Py__mnewton_API[Py__mnewton_lower_packed_copy_NUM])
+#define Py__mnewton_compute_mnewton_descent \
+  (*(PyArrayObject *(*)(PyArrayObject *, PyArrayObject *, double, double)) \
+  Py__mnewton_API[Py__mnewton_compute_mnewton_descent_NUM])
+#define Py__mnewton_armijo_backtrack_search \
+  (*(double (*)(PyObject *, PyTupleObject *, PyArrayObject *, PyObject *, \
+  PyArrayObject *, PyArrayObject *, double, double, double)) \
+  Py__mnewton_API[Py__mnewton_armijo_backtrack_search_NUM])
 
 /**
  * Makes the `_mnewton.c` C API available.
