@@ -171,6 +171,60 @@ def test_tuple_prepend_single():
     assert test_func(x, old_tp=old_tp) == (x, *old_tp)
 
 
+def test_loss_only_fun_call_noargs(qp_noargs, default_rng):
+    """Test the internal loss_only_fun_call function on model inputs.
+
+    Tests the case where the objective takes no args.
+
+    Parameters
+    ----------
+    qp_noargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get objective, initial guess (unused), gradient from qp_noargs
+    f_obj, x0, f_grad, _ = qp_noargs
+    # use x0's shape to get random value to evaluate f_obj at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected loss actual loss. f_grad == True => f_obj returns a
+    # tuple, so we drop the second element (grad) of the tuple.
+    if f_grad == True:
+        loss, _ = f_obj(x)
+    else:
+        loss = f_obj(x)
+    loss_hat = _mnewton_internal.loss_only_fun_call(f_obj, x)
+    # check that losses are essentially the same
+    np.testing.assert_allclose(loss_hat, loss)
+
+
+def test_loss_only_fun_call_yesargs(qp_yesargs, default_rng):
+    """Test the internal loss_only_fun_call function on model inputs.
+
+    Tests the case where the objective takes no args.
+
+    Parameters
+    ----------
+    qp_yesargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get objective, initial guess (unused), gradient, args from qp_yesargs
+    f_obj, x0, f_grad, _, f_args = qp_yesargs
+    # use x0's shape to get random value to evaluate f_obj at
+    x = default_rng.uniform(size=x0.shape)
+    # compute expected loss actual loss. f_grad == True => f_obj returns a
+    # tuple, so we drop the second element (grad) of the tuple.
+    if f_grad == True:
+        loss, _ = f_obj(x, *f_args)
+    else:
+        loss = f_obj(x, *f_args)
+    loss_hat = _mnewton_internal.loss_only_fun_call(f_obj, x, args=f_args)
+    # check that losses are essentially the same
+    np.testing.assert_allclose(loss_hat, loss)
+
+
 def test_compute_loss_grad_noargs(qp_noargs, default_rng):
     """Test the internal compute_loss_grad function on model inputs.
 
@@ -183,7 +237,7 @@ def test_compute_loss_grad_noargs(qp_noargs, default_rng):
     default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
-    # get objective, initial guess, gradient from qp_noargs
+    # get objective, initial guess (unused), gradient from qp_noargs
     f_obj, x0, f_grad, _ = qp_noargs
     # use x0's shape to get random value to evaluate f_obj, f_grad at
     x = default_rng.uniform(size=x0.shape)
@@ -211,7 +265,7 @@ def test_compute_loss_grad_yesargs(qp_yesargs, default_rng):
     default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
-    # get objective, initial guess, gradient, args from qp_yesargs
+    # get objective, initial guess (unused), gradient, args from qp_yesargs
     f_obj, x0, f_grad, _, f_args = qp_yesargs
     # use x0's shape to get random value to evaluate f_obj, f_grad at
     x = default_rng.uniform(size=x0.shape)
@@ -239,7 +293,7 @@ def test_compute_hessian_noargs(qp_noargs, default_rng):
     default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
-    # get initial guess and hessian function from qp_noargs
+    # get initial guess (unused) and hessian function from qp_noargs
     _, x0, _, f_hess = qp_noargs
     # use x0's shape to get random value to evaluate f_obj, f_grad at
     x = default_rng.uniform(size=x0.shape)
@@ -262,7 +316,7 @@ def test_compute_hessian_yesargs(qp_yesargs, default_rng):
     default_rng : numpy.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
-    # get initial guess and hessian function from qp_yesargs
+    # get initial guess (unused) and hessian function from qp_yesargs
     _, x0, _, f_hess, f_args = qp_yesargs
     # use x0's shape to get random value to evaluate f_obj, f_grad at
     x = default_rng.uniform(size=x0.shape)
