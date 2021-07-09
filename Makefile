@@ -57,11 +57,13 @@ endif
 dummy:
 	@echo "Please specify a target to build."
 
-# removes local build, dist, egg-info
+# removes local build, dist, egg-info, local shared objects
 clean:
 	@rm -vrf build
 	@rm -vrf $(pkg_name).egg-info
 	@rm -vrf dist
+	@rm -vrf $(pkg_name)/regression/*.so
+	@rm -vrf $(pkg_name)/solvers/*.so
 
 # build extension module locally in ./build from source files with setup.py
 build: $(ext_deps) $(py_deps)
