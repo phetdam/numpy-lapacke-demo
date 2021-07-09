@@ -325,8 +325,8 @@ PyDoc_STRVAR(
   "    True, in which case fun must return (loss, grad).\n"
   "x : numpy.ndarray\n"
   "    Point to evaluate fun, jac at. Must have type NPY_DOUBLE and flags\n"
-  "    NPY_ARRAY_IN_ARRAY or be convertible to such n array. x is assumed\n"
-  "    to have shape (n_features,) but no checks are performed.\n"
+  "    NPY_ARRAY_IN_ARRAY or be convertible to such n array. x must have\n"
+  "    shape (n_features,) and checks will be performed to ensure this.\n"
   "args : tuple, default=None\n"
   "    Additional positional arguments to pass to fun, jac."
   "\n\n"
@@ -385,6 +385,15 @@ compute_loss_grad(PyObject *self, PyObject *args, PyObject *kwargs)
   if (x == NULL) {
     return NULL;
   }
+  // check that x is nonempty and 1D array
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x must be nonempty");
+    goto except_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x must be 1D array");
+    goto except_x;
+  }
   // use Py__mnewton_tuple_prepend_single to get fun_args. NULL on error
   fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
   if (fun_args == NULL) {
@@ -423,8 +432,8 @@ PyDoc_STRVAR(
   "    (n_features, n_features) (not checked).\n"
   "x : numpy.ndarray\n"
   "    Point to evaluate fun, jac at. Must have type NPY_DOUBLE and flags\n"
-  "    NPY_ARRAY_IN_ARRAY or be convertible to such. x is assumed to have\n"
-  "    shape (n_features,) but no checks are performed.\n"
+  "    NPY_ARRAY_IN_ARRAY or be convertible to such n array. x must have\n"
+  "    shape (n_features,) and checks will be performed to ensure this.\n"
   "args : tuple, default=None\n"
   "    Additional positional arguments to pass to hess."
   "\n\n"
@@ -474,6 +483,15 @@ compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
   );
   if (x == NULL) {
     return NULL;
+  }
+  // check that x is nonempty and 1D array
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x must be nonempty");
+    goto except_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x must be 1D array");
+    goto except_x;
   }
   // use Py__mnewton_tuple_prepend_single to get fun_args. NULL on error
   fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
@@ -733,7 +751,11 @@ lower_packed_copy(PyObject *self, PyObject *arg)
   if (mat == NULL) {
     return NULL;
   }
-  // ensure that mat is 2D + get number of rows
+  // ensure that mat is nonempty and 2D, + get number of rows
+  if (PyArray_SIZE(mat) == 0) {
+    PyErr_SetString(PyExc_ValueError, "mat must be nonempty");
+    goto except_mat;
+  }
   if (PyArray_NDIM(mat) != 2) {
     PyErr_SetString(PyExc_ValueError, "mat must be 2D");
     goto except_mat;
@@ -761,6 +783,136 @@ lower_packed_copy(PyObject *self, PyObject *arg)
 // clean up on errors
 except_mat:
   Py_DECREF(mat);
+  return NULL;
+}
+
+// docstring for compute_mnewton_descent wrapper
+PyDoc_STRVAR(
+  compute_mnewton_descent_doc,
+  "compute_mnewton_descent(hess, jac, beta=1e-3, tau_factor=2.)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal function `compute_mnewton_descent`."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "hess : numpy.ndarray\n"
+  "    Current Hessian matrix of the objective, shape (n, n). Must be\n"
+  "    convertible to type NPY_DOUBLE with flags NPY_ARRAY_IN_ARRAY, i.e.\n"
+  "    C-contiguous and behaved, although not necessarily writable.\n"
+  "jac : numpy.ndarray\n"
+  "    Curretn gradient of the objective, shape (n,). Must be convertible\n"
+  "    to type NPY_DOUBLE with flags NPY_ARRAY_IN_ARRAY.\n"
+  "beta : float, default=1e-3\n"
+  "    Minimum value to add to the diagonal of hess if a copy of hess must\n"
+  "    be modified to be positive definite. Technically, only the lower\n"
+  "    triangle of hess will be stored in packed format, and that same\n"
+  "    memory will also hold the lower Choleksy factor of hess later on.\n"
+  "tau_factor : float, default=2.\n"
+  "    Value to scale the identity matrix added to hess at each iteration if\n"
+  "    hess must be modified to be positive definite. Must be at least 1 in\n"
+  "    theory but in practice, usually values >=2 are desired."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "numpy.ndarray\n"
+  "    The [modified] Newton descent direction, shape (n,), type NPY_DOUBLE\n"
+  "    with flags NPY_ARRAY_CARRAY (NPY_ARRAY_DEFAULT)."
+);
+// argument names known to compute_mnewton_descent
+static const char *compute_mnewton_descent_argnames[] = {
+  "fun", "jac", "x", "args", NULL
+};
+/**
+ * Python-accessible wrapper for `compute_mnewton_descent`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
+ * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
+ */
+static PyObject *
+compute_mnewton_descent(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // Hessian matrix, gradient value, descent direction, beta, tau_factor
+  PyArrayObject *hess, *jac, *dvec;
+  double beta, tau_factor;
+  // number of features, i.e. number of optimization variables
+  npy_intp n_features;
+  // parse arguments (all refs borrowed, so no cleanup)
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OO|dd", (char **) compute_mnewton_descent_argnames,
+      &hess, &jac, &beta, &tau_factor
+    )
+  ) {
+    return NULL;
+  }
+  // convert hess, jac to PyArrayObject * NPY_DOUBLE, NPY_ARRAY_IN_ARRAY. it's
+  // ok to discard original ref (address) since it is borrowed.
+  hess = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) hess, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (hess == NULL) {
+    return NULL;
+  }
+  jac = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) jac, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (jac == NULL) {
+    goto except_hess;
+  }
+  // check that hess, jac are not empty
+  if (PyArray_SIZE(hess) == 0) {
+    PyErr_SetString(PyExc_ValueError, "hess must be nonempty");
+    goto except_jac;
+  }
+  if (PyArray_SIZE(jac) == 0) {
+    PyErr_SetString(PyExc_ValueError, "jac must be nonempty");
+    goto except_jac;
+  }
+  // check shape of hess, which must be (n_features, n_features)
+  if (PyArray_NDIM(hess) != 2) {
+    PyErr_SetString(PyExc_ValueError, "hess must be 2D");
+    goto except_jac;
+  }
+  if (PyArray_DIM(hess, 0) != PyArray_DIM(hess, 1)) {
+    PyErr_SetString(PyExc_ValueError, "hess must have shape (n, n)");
+    goto except_jac;
+  }
+  // get n_features using hess
+  n_features = PyArray_DIM(hess, 0);
+  // check shape of jac, which must bave (n_features,)
+  if (PyArray_NDIM(jac) != 1) {
+    PyErr_SetString(PyExc_ValueError, "jac must be 1D");
+    goto except_jac;
+  }
+  if (PyArray_DIM(jac, 0) != n_features) {
+    PyErr_SetString(PyExc_ValueError, "jac must have shape (n,)");
+    goto except_jac;
+  }
+  // beta must be positive and tau_factor > 1
+  if (beta <= 0) {
+    PyErr_SetString(PyExc_ValueError, "beta must be positive");
+    goto except_jac;
+  }
+  if (tau_factor <= 1) {
+    PyErr_SetString(PyExc_ValueError, "tau_factor must be >1");
+    goto except_jac;
+  }
+  // call Py__mnewton_compute_mnewton_descent and get result in dvec
+  dvec = Py__mnewton_compute_mnewton_descent(hess, jac, beta, tau_factor);
+  if (dvec == NULL) {
+    goto except_jac;
+  }
+  // clean up and return
+  Py_DECREF(jac);
+  Py_DECREF(hess);
+  return (PyObject *) dvec;
+// clean up on error
+except_jac:
+  Py_DECREF(jac);
+except_hess:
+  Py_DECREF(hess);
   return NULL;
 }
 
@@ -805,6 +957,11 @@ static PyMethodDef _mnewton_exposed_methods[] = {
     "lower_packed_copy",
     (PyCFunction) lower_packed_copy,
     METH_O, lower_packed_copy_doc
+  },
+  {
+    "compute_mnewton_descent",
+    (PyCFunction) compute_mnewton_descent,
+    METH_VARARGS | METH_KEYWORDS, compute_mnewton_descent_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
