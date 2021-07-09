@@ -1223,6 +1223,7 @@ PyInit__linreg(void)
   c_api_obj = PyCapsule_New(
     (void *) Py__linreg_API, "npy_lapacke_demo.regression._linreg._C_API", NULL
   );
+  // PyModule_AddObject returns NULL + sets exception if value arg is NULL
   if (PyModule_AddObject(module, "_C_API", c_api_obj) < 0) {
     Py_XDECREF(c_api_obj);
     goto except_module;

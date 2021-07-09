@@ -1363,6 +1363,7 @@ PyInit__mnewton(void)
   c_api_obj = PyCapsule_New(
     (void *) Py__mnewton_API, "npy_lapacke_demo.solvers._mnewton._C_API", NULL
   );
+  // PyModule_AddObject returns NULL + sets exception if value arg is NULL
   if (PyModule_AddObject(module, "_C_API", c_api_obj) < 0) {
     // need to Py_XDECREF since c_api_obj may be NULL
     Py_XDECREF(c_api_obj);
