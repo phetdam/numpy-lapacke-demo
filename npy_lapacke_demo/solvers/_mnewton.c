@@ -1346,6 +1346,8 @@ PyInit__mnewton(void)
     (void *) npy_frob_norm;
   Py__mnewton_API[Py__mnewton_tuple_prepend_single_NUM] = \
     (void *) tuple_prepend_single;
+  Py__mnewton_API[Py__mnewton_loss_only_fun_call_NUM] = \
+    (void *) loss_only_fun_call;
   Py__mnewton_API[Py__mnewton_compute_loss_grad_NUM] = \
     (void *) compute_loss_grad;
   Py__mnewton_API[Py__mnewton_compute_hessian_NUM] = \

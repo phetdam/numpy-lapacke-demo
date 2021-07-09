@@ -308,6 +308,103 @@ tuple_prepend_single(PyObject *self, PyObject *args, PyObject *kwargs)
   return (PyObject *) Py__mnewton_tuple_prepend_single(x, old_tp);
 }
 
+// docstring for loss_only_fun_call wrapper
+PyDoc_STRVAR(
+  loss_only_fun_call_doc,
+  "loss_only_fun_call(fun, x, args=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal function loss_only_fun_call."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "fun : function\n"
+  "    Objective function with signature fun(x, *args). Must return a float\n"
+  "    or something that can be converted to a float, else (loss, grad).\n"
+  "x : numpy.ndarray\n"
+  "    Point to evaluate fun at. Must have type NPY_DOUBLE and flags\n"
+  "    NPY_ARRAY_IN_ARRAY or be convertible to such n array. x must have\n"
+  "    shape (n_features,) and checks will be performed to ensure this.\n"
+  "args : tuple, default=None\n"
+  "    Additional positional arguments to pass to fun, jac."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float\n"
+  "    Current value of the objective function at x\n"
+);
+// argument names known to loss_only_fun_call
+static const char *loss_only_fun_call_argnames[] = {"fun", "x", "args", NULL};
+/**
+ * Python-accessible wrapper for `loss_only_fun_call`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
+ * @returns New reference to `PyTupleObject *` on success, `NULL` on failure.
+ */
+static PyObject *
+loss_only_fun_call(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // objective, result, x (parameter guess)
+  PyObject *fun, *res;
+  PyArrayObject *x;
+  // positional args for fun containing x as first element. fun_args must be
+  // NULL since it may not be modified by PyArg_ParseTupleAndKeywords
+  PyTupleObject *fun_args;
+  fun_args = NULL;
+  // parse arguments using PyArg_ParseTupleAndKeywords
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OO|O!", (char **) loss_only_fun_call_argnames,
+      &fun, &x, &PyTuple_Type, &fun_args
+    )
+  ) {
+    return NULL;
+  }
+  // success. check that fun is callable
+  if (!PyCallable_Check(fun)) {
+    PyErr_SetString(PyExc_TypeError, "fun must be callable");
+    return NULL;
+  }
+  // convert x to numpy.ndarray with NPY_DOUBLE type, NPY_ARRAY_IN_ARRAY flags
+  x = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (x == NULL) {
+    return NULL;
+  }
+  // check that x is nonempty and 1D array
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x must be nonempty");
+    goto except_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x must be 1D array");
+    goto except_x;
+  }
+  // use Py__mnewton_tuple_prepend_single to get fun_args. NULL on error. it's
+  // fine to drop the borrowed reference.
+  fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
+  if (fun_args == NULL) {
+    goto except_x;
+  }
+  // call Py__mnewton_loss_only_fun_call and get res (NULL on error)
+  res = Py__mnewton_loss_only_fun_call(fun, fun_args);
+  if (res == NULL) {
+    goto except_fun_args;
+  }
+  // if no problems, clean up and return
+  Py_DECREF(fun_args);
+  Py_DECREF(x);
+  return (PyObject *) res;
+// clean up on errors
+except_fun_args:
+  Py_DECREF(fun_args);
+except_x:
+  Py_DECREF(x);
+  return NULL;
+}
+
 // docstring for compute_loss_grad wrapper
 PyDoc_STRVAR(
   compute_loss_grad_doc,
@@ -937,6 +1034,11 @@ static PyMethodDef _mnewton_internal_methods[] = {
     "tuple_prepend_single",
     (PyCFunction) tuple_prepend_single,
     METH_VARARGS | METH_KEYWORDS, tuple_prepend_single_doc
+  },
+  {
+    "loss_only_fun_call",
+    (PyCFunction) loss_only_fun_call,
+    METH_VARARGS | METH_KEYWORDS, loss_only_fun_call_doc
   },
   {
     "compute_loss_grad",
