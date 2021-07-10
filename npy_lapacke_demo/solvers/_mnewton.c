@@ -757,8 +757,10 @@ compute_mnewton_descent(
   hess_data = (double *) PyArray_DATA(hess);
   jac_data = (double *) PyArray_DATA(jac);
   // allocate memory for lower. NULL on error. note that only n_features +
-  // n_features * (n_features - 1) / 2 elements need to be stored.
-  lower = (double *) PyMem_RawMalloc(n_features * (n_features + 1) / 2);
+  // n_features * (n_features - 1) / 2 double elements need to be stored.
+  lower = (double *) PyMem_RawMalloc(
+    n_features * (n_features + 1) / 2 * sizeof(double)
+  );
   if (lower == NULL) {
     return NULL;
   }

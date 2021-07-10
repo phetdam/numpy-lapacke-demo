@@ -9,6 +9,7 @@ respective Python-accessible wrappers in _mnewton_internal.
 from functools import partial
 import numpy as np
 import pytest
+import scipy.linalg
 
 from .. import _mnewton_internal
 
@@ -396,3 +397,30 @@ def test_lower_packed_copy():
     lmatp_hat = _mnewton_internal.lower_packed_copy(mat)
     # check that lower_packed_copy gives the same result as expected
     np.testing.assert_allclose(lmatp_hat, lmatp)
+
+
+def test_compute_mnewton_descent_nom(qp_hess_a, default_rng):
+    """Test the internal compute_mnewton_descent function on model input.
+
+    Consider only the case where the Hessian is already positive definite.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # get Hessian, linear terms, n_features for convex quadratic function.
+    # ensure that hess is positive definite by bumping the diagonal.
+    hess, a, n_features = qp_hess_a
+    hess += 1e-3 * np.eye(n_features)
+    # evaluate gradient of the function at a random point (shifted lognormal)
+    grad = hess @ default_rng.lognormal(size=n_features) - 1. + a
+    # compute the expected standard Newton descent direction manually using a
+    # Cholesky factorization to emulate the expected output
+    dvec = scipy.linalg.solve(hess, -grad, assume_a="pos")
+    # call compute_mnewton_descent wrapper and get actual descent direction
+    dvec_hat = _mnewton_internal.compute_mnewton_descent(hess, grad)
+    # check that the actual and expected results are close
+    np.testing.assert_allclose(dvec_hat, dvec)
