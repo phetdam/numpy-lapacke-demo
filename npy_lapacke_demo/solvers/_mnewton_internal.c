@@ -933,6 +933,9 @@ compute_mnewton_descent(PyObject *self, PyObject *args, PyObject *kwargs)
   // Hessian matrix, gradient value, descent direction, beta, tau_factor
   PyArrayObject *hess, *jac, *dvec;
   double beta, tau_factor;
+  // default values for beta, tau_factor, as suggested by Nocedal and Wright
+  beta = 1e-3;
+  tau_factor = 2;
   // number of features, i.e. number of optimization variables
   npy_intp n_features;
   // parse arguments (all refs borrowed, so no cleanup)

@@ -837,7 +837,7 @@ compute_mnewton_descent(
     );
     goto except_d_ar;
   }
-  // don, so clean up lower and return d_ar
+  // done, so clean up lower and return d_ar
   PyMem_RawFree((void *) lower);
   return d_ar;
 // clean up on exceptions
