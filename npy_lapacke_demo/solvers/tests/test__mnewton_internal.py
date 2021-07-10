@@ -399,10 +399,10 @@ def test_lower_packed_copy():
     np.testing.assert_allclose(lmatp_hat, lmatp)
 
 
-def test_compute_mnewton_descent_nom(qp_hess_a, default_rng):
+def test_compute_mnewton_descent_pd(qp_hess_a, default_rng):
     """Test the internal compute_mnewton_descent function on model input.
 
-    Consider only the case where the Hessian is already positive definite.
+    Considers the case where the Hessian is already positive definite.
 
     Parameters
     ----------
@@ -422,5 +422,46 @@ def test_compute_mnewton_descent_nom(qp_hess_a, default_rng):
     dvec = scipy.linalg.solve(hess, -grad, assume_a="pos")
     # call compute_mnewton_descent wrapper and get actual descent direction
     dvec_hat = _mnewton_internal.compute_mnewton_descent(hess, grad)
+    # check that the actual and expected results are close
+    np.testing.assert_allclose(dvec_hat, dvec)
+
+
+#@pytest.mark.skip(reason="not yet implemented")
+@pytest.mark.parametrize("beta", [1e-3, 0.1])
+def test_compute_mnewton_descent_diag(qp_hess_a, default_rng, beta):
+    """Test the internal compute_mnewton_descent function on model input.
+
+    Considers the case where the Hessian is modified to be positive definite
+    but is diagonal, which makes it easy to determine a prior what value (tau)
+    must be added to the diagonal to obtain a positive-definite Hessian.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    beta : float
+        Minimum value to add to the diagonal of the Hessian
+    """
+    # get Hessian, linear terms, n_features for convex quadratic function,
+    # where we set the Hessian to simply consist of its diagonal.
+    hess, a, n_features = qp_hess_a
+    hess = np.diag(np.diag(hess))
+    # make hess non-positive definite by subtracting the average of the trace
+    # from the diagonal elements, which causes some elements to be negative.
+    hess -= np.trace(hess) / n_features * np.eye(n_features)
+    # evaluate gradient of the function at a random point (shifted lognormal)
+    grad = hess @ default_rng.lognormal(size=n_features) - 1. + a
+    # compute the expected modified Newton descent direction. since some
+    # elements of hess's diagonal are negative, we know that tau is
+    # -np.diag(hess).min() + beta, so we make this modification before calling
+    # scipy.linalg.solve, assume_a="pos" (Cholesky factorization) to solve.
+    dvec = scipy.linalg.solve(
+        hess + (beta - np.diag(hess).min()) * np.eye(n_features),
+        -grad, assume_a="pos"
+    )
+    # call compute_mnewton_descent wrapper and get actual descent direction
+    dvec_hat = _mnewton_internal.compute_mnewton_descent(hess, grad, beta=beta)
     # check that the actual and expected results are close
     np.testing.assert_allclose(dvec_hat, dvec)

@@ -917,7 +917,7 @@ PyDoc_STRVAR(
 );
 // argument names known to compute_mnewton_descent
 static const char *compute_mnewton_descent_argnames[] = {
-  "fun", "jac", "x", "args", NULL
+  "fun", "jac", "beta", "tau_factor", NULL
 };
 /**
  * Python-accessible wrapper for `compute_mnewton_descent`.
