@@ -33,7 +33,7 @@ static const char *remove_kwargs_dispatcher_argnames[] = {
  *     `remove_specified_kwargs` or `remove_unspecified_kwargs`. Must only be
  *     `REMOVE_KWARGS_SPECIFIED` or `REMOVE_KWARGS_UNSPECIFIED`.
  * @returns New reference to a `PyLongObject` giving the number of names
- *     dropped from the kwargs dict on success, `NULL` on failure.
+ *     dropped from the kwargs dict on success, `NULL` with exception on error.
  */
 static PyObject *
 remove_kwargs_dispatcher(PyObject *args, PyObject *kwargs, int dispatch_flag)
@@ -171,7 +171,7 @@ PyDoc_STRVAR(
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyLongObject *` on success, `NULL` on failure.
+ * @returns New ref to `PyLongObject *` on success, `NULL` + exception on error.
  */
 static PyObject *
 remove_specified_kwargs(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -209,7 +209,7 @@ PyDoc_STRVAR(
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyLongObject *` on success, `NULL` on failure.
+ * @returns New ref to `PyLongObject *` on success, `NULL` + exception on error.
  */
 static PyObject *
 remove_unspecified_kwargs(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -287,7 +287,7 @@ static const char *tuple_prepend_single_argnames[] = {
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
- * @returns New reference to `PyTupleObject`, `NULL` on error.
+ * @returns New reference to `PyTupleObject`, `NULL` with exception on error.
  */
 static PyObject *
 tuple_prepend_single(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -340,7 +340,7 @@ static const char *loss_only_fun_call_argnames[] = {"fun", "x", "args", NULL};
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyTupleObject *` on success, `NULL` on failure.
+ * @returns New `PyFloatObject *` ref on success, `NULL` + exception on error.
  */
 static PyObject *
 loss_only_fun_call(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -444,7 +444,7 @@ static const char *compute_loss_grad_argnames[] = {
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyTupleObject *` on success, `NULL` on failure.
+ * @returns New `PyTupleObject *` ref on success, `NULL` + exception on error.
  */
 static PyObject *
 compute_loss_grad(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -518,7 +518,7 @@ PyDoc_STRVAR(
   compute_hessian_doc,
   "compute_hessian(hess, x, args=None)"
   "\n--\n\n"
-  "Python-accessible wrapper for internal function `compute_hessian`."
+  "Python-accessible wrapper for internal function compute_hessian."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -549,7 +549,7 @@ static const char *compute_hessian_argnames[] = {
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` giving any keyword arguments, may be `NULL`
- * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
+ * @returns New `PyArrayObject *` ref on success, `NULL` + exception on error.
  */
 static PyObject *
 compute_hessian(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -812,7 +812,7 @@ PyDoc_STRVAR(
   lower_packed_copy_doc,
   "lower_packed_copy(mat)"
   "\n--\n\n"
-  "Python-accessible wrapper for internal function `lower_packed_copy`."
+  "Python-accessible wrapper for internal function lower_packed_copy."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -831,7 +831,7 @@ PyDoc_STRVAR(
  * 
  * @param self `PyObject *` module (unused)
  * @param arg `PyObject *` single positional arg
- * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
+ * @returns New `PyArrayObject *` ref on success, `NULL` + exception on error.
  */
 static PyObject *
 lower_packed_copy(PyObject *self, PyObject *arg)
@@ -888,7 +888,7 @@ PyDoc_STRVAR(
   compute_mnewton_descent_doc,
   "compute_mnewton_descent(hess, jac, beta=1e-3, tau_factor=2.)"
   "\n--\n\n"
-  "Python-accessible wrapper for internal function `compute_mnewton_descent`."
+  "Python-accessible wrapper for internal function compute_mnewton_descent."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -925,7 +925,7 @@ static const char *compute_mnewton_descent_argnames[] = {
  * @param self `PyObject *` module (unused)
  * @param args `PyObject *` tuple of positional args
  * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
- * @returns New reference to `PyArrayObject *` on success, `NULL` on failure.
+ * @returns New `PyArrayObject *` ref on success, `NULL` + exception on error.
  */
 static PyObject *
 compute_mnewton_descent(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -1016,6 +1016,182 @@ except_hess:
   return NULL;
 }
 
+// docstring for armijo_backtrack_search wrapper
+PyDoc_STRVAR(
+  armijo_backtrack_search_doc,
+  "armijo_backtrack_search(fun, jac, x, d_x, alpha=0.5, gamma=0.8, eta0=1., \n"
+  "args=None)"
+  "\n--\n\n"
+  "Python-accessible wrapper for internal function armijo_backtrack_search."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "fun : callable\n"
+  "    Objective function, signature fun(x, *args), returning a float. If\n"
+  "    jac=True, expected to return (loss, grad).\n"
+  "jac : callable or True\n"
+  "    Gradient function, signature jac(x, *args), returning a numpy.ndarray\n"
+  "    shape (n_features,), type NPY_DOUBLE, flags NPY_ARRAY_CARRAY. If True,\n"
+  "    fun must return (loss, grad), as noted above.\n"
+  "x : numpy.ndarray\n"
+  "    Current parameter guess, shape (n_features,), type NPY_DOUBLE with\n"
+  "    flags NPY_ARRAY_IN_ARRAY or an object convertible to such an array.\n"
+  "d_x : numpy.ndarray\n"
+  "    Current descent direction, shape (n_features,) same type and flags as\n"
+  "    x or an object convertible to such a NumPy array.\n"
+  "alpha : float, default=0.5\n"
+  "    Parameter controlling sufficient decrease requirement in the Armijo\n"
+  "    condition. Increase to require greater decrease before accepting step\n"
+  "    length. Must be a value in (0, 1).\n"
+  "gamma : float, default=0.8\n"
+  "    Parameter controlling deflation of initial step size if trial step\n"
+  "    size is rejected. Must be in (0, 1).\n"
+  "eta0 : float, default=1.\n"
+  "    Initial trial step length. The returned step length is guaranteed to\n"
+  "    be in (0, eta0). For Newton and quasi-Newton methods, keep as 1.\n"
+  "args : tuple, default=None\n"
+  "    Other positional args to pass to fun, jac."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float\n"
+  "    Step size chosen by Armijo condition backtracking line search"
+);
+// argument names known to armijo_backtrack_search
+static const char *armijo_backtrack_search_argnames[] = {
+  "fun", "jac", "x", "d_x", "alpha", "gamma", "eta0", "args", NULL
+};
+/**
+ * Python-accessible wrapper for `armijo_backtrack_search`.
+ * 
+ * @param self `PyObject *` module (unused)
+ * @param args `PyObject *` tuple of positional args
+ * @param kwargs `PyObject *` dict of keyword arguments, may be `NULL`
+ * @returns New `PyFloatObject *` ref on success, `NULL` + exception on error.
+ */
+static PyObject *
+armijo_backtrack_search(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  // objective and gradient functions, current function (objective) value
+  // (might by PyFloatObject subclass), args (including x as first arg), temp
+  PyObject *fun, *jac, *fun_x;
+  PyTupleObject *fun_args, *temp_tp;
+  // fun_args may not be modified, so it must be set to NULL
+  fun_args = NULL;
+  // current parameter guess, current descent direction, current gradient value
+  PyArrayObject *x, *d_x, *jac_x;
+  // alpha, gamma used in the line search, initial + final step size
+  double alpha, gamma, eta0, eta;
+  alpha = 0.5;
+  gamma = 0.8;
+  eta0 = 1;
+  // parse arguments (all refs borrowed, so no cleanup)
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OOOO|dddO!", (char **) armijo_backtrack_search_argnames,
+      &fun, &jac, &x, &d_x, &alpha, &gamma, &eta0, &PyTuple_Type, &fun_args
+    )
+  ) {
+    return NULL;
+  }
+  // check that fun, jac are callable. jac can be Py_True
+  if (!PyCallable_Check(fun)) {
+    PyErr_SetString(PyExc_TypeError, "fun must be callable");
+    return NULL;
+  }
+  if (!PyCallable_Check(jac) && jac != Py_True) {
+    PyErr_SetString(PyExc_TypeError, "jac must be callable or True");
+    return NULL;
+  }
+  // convert x, d_x to PyArrayObject * NPY_DOUBLE, NPY_ARRAY_IN_ARRAY. it's
+  // ok to discard original refs (addresses) since they are borrowed.
+  x = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (x == NULL) {
+    return NULL;
+  }
+  d_x = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) d_x, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (d_x == NULL) {
+    goto except_x;
+  }
+  // check that x, d_x are nonempty + are 1D arrays, shape (n_features,)
+  if (PyArray_SIZE(x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "x must be nonempty");
+    goto except_d_x;
+  }
+  if (PyArray_SIZE(d_x) == 0) {
+    PyErr_SetString(PyExc_ValueError, "d_x must be nonempty");
+    goto except_d_x;
+  }
+  if (PyArray_NDIM(x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "x must be 1D array");
+    goto except_d_x;
+  }
+  if (PyArray_NDIM(d_x) != 1) {
+    PyErr_SetString(PyExc_ValueError, "d_x must be 1D array");
+    goto except_d_x;
+  }
+  if (PyArray_DIM(x, 0) != PyArray_DIM(d_x, 0)) {
+    PyErr_SetString(PyExc_ValueError, "x, d_x must have shape (n_features,)");
+    goto except_d_x;
+  }
+  // alpha, gamma must be in (0, 1)
+  if (alpha <= 0 || alpha >= 1) {
+    PyErr_SetString(PyExc_ValueError, "alpha must be in (0, 1)");
+    goto except_d_x;
+  }
+  if (gamma <= 0 || gamma >= 1) {
+    PyErr_SetString(PyExc_ValueError, "gamma must be in (0, 1)");
+    goto except_d_x;
+  }
+  // use Py__mnewton_tuple_prepend_single to append x to fun_args (new ref)
+  fun_args = Py__mnewton_tuple_prepend_single((PyObject *) x, fun_args);
+  if (fun_args == NULL) {
+    goto except_d_x;
+  }
+  // use Py__mnewton_compute_loss_grad to call fun, jac with fun_args and get
+  // the current objective and gradient values to fun_x, jac_x.
+  temp_tp = Py__mnewton_compute_loss_grad(fun, jac, fun_args);
+  if (temp_tp == NULL) {
+    goto except_fun_args;
+  }
+  fun_x = PyTuple_GET_ITEM(temp_tp, 0);
+  jac_x = (PyArrayObject *) PyTuple_GET_ITEM(temp_tp, 1);
+  // need to Py_INCREF fun_x, jac_x since borrowed + Py_DECREF unneeded temp_tp
+  Py_INCREF(fun_x);
+  Py_INCREF(jac_x);
+  Py_DECREF(temp_tp);
+  // call Py__mnewton_armijo_backtrack_search to get step size. note that the
+  // first element of fun_args is ignored. 0 on error with set exception.
+  eta = Py__mnewton_armijo_backtrack_search(
+    fun, fun_args, x, fun_x, jac_x, d_x, 1, alpha, gamma
+  );
+  if (eta == 0) {
+    goto except_fun_x_jac_x;
+  }
+  // clean up and return new PyFloatObject *
+  Py_DECREF(jac_x);
+  Py_DECREF(fun_x);
+  Py_DECREF(fun_args);
+  Py_DECREF(d_x);
+  Py_DECREF(x);
+  return PyFloat_FromDouble(eta);
+// clean up on error
+except_fun_x_jac_x:
+  Py_DECREF(jac_x);
+  Py_DECREF(fun_x);
+except_fun_args:
+  Py_DECREF(fun_args);
+except_d_x:
+  Py_DECREF(d_x);
+except_x:
+  Py_DECREF(x);
+  return NULL;
+}
+
 // _mnewton_internal methods (wrap internal functions in _mnewton)
 static PyMethodDef _mnewton_internal_methods[] = {
   {
@@ -1067,6 +1243,11 @@ static PyMethodDef _mnewton_internal_methods[] = {
     "compute_mnewton_descent",
     (PyCFunction) compute_mnewton_descent,
     METH_VARARGS | METH_KEYWORDS, compute_mnewton_descent_doc
+  },
+  {
+    "armijo_backtrack_search",
+    (PyCFunction) armijo_backtrack_search,
+    METH_VARARGS | METH_KEYWORDS, armijo_backtrack_search_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
