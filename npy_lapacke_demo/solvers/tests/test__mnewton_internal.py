@@ -426,7 +426,6 @@ def test_compute_mnewton_descent_pd(qp_hess_a, default_rng):
     np.testing.assert_allclose(dvec_hat, dvec)
 
 
-#@pytest.mark.skip(reason="not yet implemented")
 @pytest.mark.parametrize("beta", [1e-3, 0.1])
 def test_compute_mnewton_descent_diag(qp_hess_a, default_rng, beta):
     """Test the internal compute_mnewton_descent function on model input.
@@ -450,7 +449,7 @@ def test_compute_mnewton_descent_diag(qp_hess_a, default_rng, beta):
     hess = np.diag(np.diag(hess))
     # make hess non-positive definite by subtracting the average of the trace
     # from the diagonal elements, which causes some elements to be negative.
-    hess -= np.trace(hess) / n_features * np.eye(n_features)
+    hess -= np.diag(hess).mean() * np.eye(n_features)
     # evaluate gradient of the function at a random point (shifted lognormal)
     grad = hess @ default_rng.lognormal(size=n_features) - 1. + a
     # compute the expected modified Newton descent direction. since some
@@ -463,5 +462,96 @@ def test_compute_mnewton_descent_diag(qp_hess_a, default_rng, beta):
     )
     # call compute_mnewton_descent wrapper and get actual descent direction
     dvec_hat = _mnewton_internal.compute_mnewton_descent(hess, grad, beta=beta)
+    # check that the actual and expected results are close
+    np.testing.assert_allclose(dvec_hat, dvec)
+
+
+def _compute_mnewton_descent(hess, jac, beta=1e-3, tau_factor=2.):
+    """Python translation of compute_mnewton_descent in the _mnewton extension.
+
+    No parameters are checked. Treat as internal to unit tests. Algorithm
+    described on page 51 of Nocedal and Wright's Numerical Optimization.
+
+    Parameters
+    ----------
+    hess : numpy.ndarray
+        Current Hessian matrix, shape (n, n)
+    jac : numpy.ndarray
+        Current gradient value, shape (n,)
+    beta : float, default=1e-3
+        Minimum value added to the Hessian's diagonal if not positive definite.
+    tau_factor : float, default=2.
+        Value to scale tau, the value scaling the identity matrix added to the
+        Hessian when it is not positive definite, by each iteration when the
+        Hessian is not positive definite.
+
+    Returns
+    -------
+    numpy.ndarray
+        [Modified] Newton descent direction, shape (n,)
+    """
+    # get number of optimization variables
+    n_features = hess.shape[0]
+    # compute minimum diagonal element
+    diag_min = np.diag(hess).min()
+    # choose initial value of tau
+    if diag_min > 0:
+        tau = 0
+    else:
+        tau = -diag_min + beta
+    # until matrix is sufficiently positive definite
+    while True:
+        # attempt to compute lower Cholesky factor of modified Hessian. if
+        # successful, break out of the loop.
+        try:
+            lower = np.linalg.cholesky(hess + tau * np.eye(n_features))
+            break
+        # on LinAlgError, i.e. modified Hessian not positive definite, set tau
+        # to max of tau_factor * its old value of beta and continue
+        except:
+            tau = np.maximum(tau_factor * tau, beta)
+    # use scipy.linalg.cho_solve to directly solve linear system + return
+    return scipy.linalg.cho_solve((lower, True), -jac)
+
+
+@pytest.mark.parametrize("beta", [1e-3, 0.1])
+@pytest.mark.parametrize("tau_factor", [2., 5.])
+def test_compute_mnewton_descent_gen(qp_hess_a, default_rng, beta, tau_factor):
+    """Test the internal compute_mnewton_descent function on model input.
+
+    Considers the case where the Hessian is modified to be positive definite in
+    the general case. This is harder to verify, so a testing-internal Python
+    version of compute_mnewton_descent is used to verify the output.
+
+    See _compute_mnewton_descent for this Python implementation, which is
+    easier to understand compared to the production C implementation.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    beta : float
+        Minimum value to add to the diagonal of the Hessian
+    tau_factor : float
+        Value to scale up tau, the value used to scale the identity matrix
+        added to the Hessian each iteration.
+    """
+    # get Hessian, linear terms, n_features for convex quadratic function. make
+    # hess non-positive definite by subtracting the average of the trace from
+    # the diagonal elements, making some diagonal elements negative.
+    hess, a, n_features = qp_hess_a
+    hess -= np.diag(hess).mean() * np.eye(n_features)
+    # evaluate gradient of the function at a random point (shifted lognormal)
+    grad = hess @ default_rng.lognormal(size=n_features) - 1. + a
+    # compute expected descent direction using _compute_mnewton_descent
+    dvec = _compute_mnewton_descent(
+        hess, grad, beta=beta, tau_factor=tau_factor
+    )
+    # compute actual descent direction using the production C implementation
+    dvec_hat = _mnewton_internal.compute_mnewton_descent(
+        hess, grad, beta=beta, tau_factor=tau_factor
+    )
     # check that the actual and expected results are close
     np.testing.assert_allclose(dvec_hat, dvec)
