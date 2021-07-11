@@ -877,7 +877,7 @@ except_lower:
  * @param gamma `double` that deflates the step size each iteration. Decrease
  *     to more quickly deflate the step size.
  * @returns `double` positive step size to use for the line search update. On
- *     error, exactly 0 will be returned.
+ *     error, exactly 0 will be returned and an exception set.
  */
 static double
 armijo_backtrack_search(
