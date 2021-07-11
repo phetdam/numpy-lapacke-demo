@@ -34,6 +34,27 @@ def test_init_sanity():
         LinearRegression(solver="magic_solver")
 
 
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("solver", ["qr", "svd"])
+def test_repr(fit_intercept, solver):
+    """Test LinearRegression.__repr__.
+
+    Parameters
+    ----------
+    fit_intercept : bool
+        Whether or not the model intercept should be fitted.
+    solver : {"qr", "svd"}
+        A string specifying which solver should be used.
+    """
+    # expected repr result
+    true_repr = "LinearRegression(*, "
+    true_repr += f"fit_intercept={fit_intercept}, solver={solver})"
+    # relevant LinearRegression instance
+    lr = LinearRegression(fit_intercept=fit_intercept, solver=solver)
+    # check that actual repr matches expected repr
+    assert true_repr == repr(lr)
+
+
 def test_members(lr_default):
     """Members of the LinearRegression instance are read-only.
 

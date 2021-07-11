@@ -667,6 +667,22 @@ LinearRegression_init(LinearRegression *self, PyObject *args, PyObject *kwargs)
   return 0;
 }
 
+/**
+ * `__repr__` method for the `LinearRegression` class.
+ * 
+ * @param self `LinearRegression *` to instance returned by `__init__`
+ * @returns New reference to `PyUnicodeObject *` on success giving string
+ *     representation for the instance, `NULL` on error with exception set.
+ */
+static PyObject *
+LinearRegression_repr(LinearRegression *self)
+{
+  return PyUnicode_FromFormat(
+    "LinearRegression(*, fit_intercept=%s, solver=%s)",
+    (self->fit_intercept) ? "True" : "False", self->solver
+  );
+}
+
 // members of the LinearRegression type. note T_STRING implies READONLY.
 static PyMemberDef LinearRegression_members[] = {
   {
@@ -1160,7 +1176,9 @@ static PyTypeObject LinearRegression_type = {
   // members, getset members, and methods of the LinearRegression class
   .tp_members = LinearRegression_members,
   .tp_getset = LinearRegression_getsets,
-  .tp_methods = LinearRegression_methods
+  .tp_methods = LinearRegression_methods,
+  // __repr__ method for the LinearRegression class
+  .tp_repr = (reprfunc) LinearRegression_repr
 };
 
 // _linreg module docstring
