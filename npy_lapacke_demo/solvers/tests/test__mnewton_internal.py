@@ -558,15 +558,18 @@ def test_compute_mnewton_descent_gen(qp_hess_a, default_rng, beta, tau_factor):
 
 
 @pytest.mark.parametrize("alpha", [0.2, 0.499])
-def test_armijo_backtrack_search_qp(qp_hess_a, qp_noargs, default_rng, alpha):
+def test_armijo_backtrack_keep_init(qp_hess_a, qp_noargs, default_rng, alpha):
     """Test the internal armijo_backtrack_search function on convex QP.
 
-    Since the Hessian of the QP is positive definite, resulting step size is
-    expected to be 1 since alpha=0.5 by default. Mathematically, for any alpha
-    in (0, 0.5], step size 1 satisfies Armijo condition for positive definite
-    quadratic objective function in an unconstrained optimization problem.
-    However, due to flop rounding errors, alpha=0.5 does not satisfy the
-    Armijo condition, so note that the large alpha is 0.499.
+    Since the Hessian of the QP is positive definite, resulting step size when
+    descent direction immediately yields step to optimal point is expected to
+    be 1 (the default initial step) since alpha=0.5 by default. Mathematically,
+    in this case, for any alpha in (0, 0.5], step size 1 satisfies Armijo
+    condition for positive definite quadratic objective function in an
+    unconstrained optimization problem.
+
+    However, due to flop rounding errors, alpha=0.5 does not satisfy the Armijo
+    condition, so note that the large alpha is set to 0.499 instead.
 
     Parameters
     ----------
@@ -594,3 +597,41 @@ def test_armijo_backtrack_search_qp(qp_hess_a, qp_noargs, default_rng, alpha):
         f_obj, f_grad, x, d_x, alpha=alpha
     )
     assert step == 1
+
+
+@pytest.mark.parametrize("gamma", [0.45, 0.34])
+def test_armijo_backtrack_shrink_init(qp_hess_a, qp_noargs, default_rng, gamma):
+    """Test the internal armijo_backtrack_search function on convex QP.
+
+    Same scenario as stated in docstring for test_armijo_backtrack_keep_init,
+    i.e. convex quadratic objective with positive definite Hessian, descent
+    direction yields step to optimal point. By setting alpha=0.6, a step size
+    of 1 no longer satisfies the Armijo condition, so the step size is shrunk.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    qp_noargs : tuple
+        pytest fixture. See local conftest.py.
+    default_rng : numpy.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    gamma : float
+        Parameter in (0, 1) controlling shrinkage of rejected steps.
+    """
+    # get Hessian, linear terms, n_features of problem from qp_hess_a
+    hess, a, n_features = qp_hess_a
+    # get f_obj, f_grad from qp_noargs
+    f_obj, _, f_grad, _ = qp_noargs
+    # we know that the optimal point solves Qx = -a, Q Hessian, a linear terms
+    # of the convex quadratic objective, so compute solution
+    qp_sol = scipy.linalg.solve(hess, -a, assume_a="pos")
+    # compute random "current guess" and optimal descent direction
+    x = default_rng.lognormal(size=n_features)
+    d_x = -x + qp_sol
+    # call armijo_backtrack_search wrapper to compute step size
+    step = _mnewton_internal.armijo_backtrack_search(
+        f_obj, f_grad, x, d_x, alpha=0.6, gamma=gamma
+    )
+    # check that step == gamma as gamma values provided are < 0.
+    assert step == gamma
