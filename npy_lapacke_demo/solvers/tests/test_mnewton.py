@@ -6,6 +6,7 @@ __doc__ = """Tests for the mnewton function provided by _mnewton.
 from functools import partial
 import numpy as np
 import pytest
+import scipy.linalg
 
 # pylint: disable=no-name-in-module
 from .._mnewton import mnewton
@@ -86,3 +87,43 @@ def test_mnewton_sanity(qp_noargs):
     # tau_factor must be 2 or greater
     with pytest.raises(ValueError, match=r"tau_factor must be greater than 1"):
         mnewton(f_obj, x0, jac=f_grad, hess=f_hess, tau_factor=1)
+
+
+def test_mnewton_qp_noargs(qp_hess_a, qp_noargs):
+    """Test mnewton on convex unconstrained QP with no function arguments.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    qp_noargs : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get f_obj, x0, f_grad, f_hess from qp_noargs
+    f_obj, x0, f_grad, f_hess = qp_noargs
+    # get Hessian and linear terms from qp_hess_a + compute optimal point
+    hess, a, _ = qp_hess_a
+    qp_sol = scipy.linalg.solve(hess, -a, assume_a="pos")
+    # call mnewton and check that solution is close to qp_sol
+    res = mnewton(f_obj, x0, jac=f_grad, hess=f_hess, gtol=1e-6)
+    np.testing.assert_allclose(res.x, qp_sol)
+
+
+def test_mnewton_qp_yesargs(qp_hess_a, qp_yesargs):
+    """Test mnewton on convex unconstrained QP with function arguments.
+
+    Parameters
+    ----------
+    qp_hess_a : tuple
+        pytest fixture. See local conftest.py.
+    qp_yesargs : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get f_obj, x0, f_grad, f_hess, f_args from qp_noargs
+    f_obj, x0, f_grad, f_hess, f_args = qp_yesargs
+    # get Hessian and linear terms from qp_hess_a + compute optimal point
+    hess, a, _ = qp_hess_a
+    qp_sol = scipy.linalg.solve(hess, -a, assume_a="pos")
+    # call mnewton and check that solution is close to qp_sol
+    res = mnewton(f_obj, x0, args=f_args, jac=f_grad, hess=f_hess, gtol=1e-6)
+    np.testing.assert_allclose(res.x, qp_sol)
