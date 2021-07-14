@@ -76,9 +76,9 @@ Package contents
 
 The ``npy_lapacke_demo`` package contains the ``regression`` and ``solvers``
 subpackages. The ``regression`` subpackage provides the ``LinearRegression``
-class, implemented like a scikit-learn estimator, which can be used to fit a
-linear model with optional intercept by ordinary least squares, using either QR
-or singular value decompositions. The ``solvers`` subpackage provides the
+class, implemented like a `scikit-learn`__ estimator, which can be used to fit
+a linear model with optional intercept by ordinary least squares, using either
+QR or singular value decompositions. The ``solvers`` subpackage provides the
 ``mnewton`` local minimizer, implemented such that it may be used as a frontend
 for `scipy.optimize.minimize`__ by passing ``mnewton`` to the ``method``
 keyword argument. ``mnewton`` implements Newton's method with a Hessian
@@ -88,7 +88,37 @@ Hessian a descent direction. ``mnewton`` implements Algorithm 3.3 on page 51 of
 Nocedal and Wright's *Numerical Optimization* and uses the returned lower
 Cholesky factor of the modified Hessian when computing the descent direction.
 The step size for the line search is chosen using a backtracking line search
-that terminates when the Armijo condition is satisifed.
+that terminates when the Armijo condition is satisfied.
+
+.. __: https://scikit-learn.org/stable/index.html
 
 .. __: https://docs.scipy.org/doc/scipy/reference/generated/
    scipy.optimize.minimize.html
+
+
+Code examples
+-------------
+
+Here are some examples that demonstrate how the ``LinearRegression`` class and
+``mnewton`` minimizer could be used. Both use functions provided by
+scikit-learn for convenience, so to run the examples, scikit-learn must of
+course be installed.
+
+``LinearRegression``
+~~~~~~~~~~~~~~~~~~~~
+
+Fit a linear model with intercept by ordinary least squares using the singular
+value decomposition.
+
+.. code:: python3
+
+   from sklearn.datasets import load_boston
+   from sklearn.metrics import r2_score
+   from sklearn.model_selection import train_test_split
+
+   from npy_lapacke_demo.regression import LinearRegression
+
+   X, y = load_boston(return_X_y=True)
+   X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
+   lr = LinearRegression(solver="svd").fit(X_train, y_train)
+   print(f"test R2: {r2_score(y_test, lr.predict(X_test))}")
