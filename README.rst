@@ -3,12 +3,18 @@
 npy_lapacke_demo
 ================
 
-A tiny Python package demonstrating how to use `LAPACKE`__ and `CBLAS`__ with
+A small Python package demonstrating how to use `LAPACKE`__ and `CBLAS`__ with
 NumPy arrays in C extension modules.
+
+Also includes an example of making LAPACKE calls from normal C code in the
+`lapacke_demo`__ directory. See the corresponding ``lapacke_demo/README.rst``
+for more details.
 
 .. __: https://www.netlib.org/lapack/lapacke.html
 
 .. __: http://www.netlib.org/blas/
+
+.. __: https://github.com/phetdam/npy_lapacke_demo/tree/master/lapacke_demo
 
 
 Installation
