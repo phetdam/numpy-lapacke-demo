@@ -8,7 +8,7 @@ NumPy arrays in C extension modules.
 
 Also includes an example of making LAPACKE calls from normal C code in the
 `lapacke_demo`__ directory. See the corresponding ``lapacke_demo/README.rst``
-for more details.
+for details on building and running the example.
 
 .. __: https://www.netlib.org/lapack/lapacke.html
 
