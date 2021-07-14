@@ -9,7 +9,7 @@ from npy_lapacke_demo import __package__, __version__
 
 # package name and summary/short description
 _PACKAGE_NAME = __package__
-_PACKAGE_SUMMARY = """A tiny Python package demonstrating how to use LAPACKE \
+_PACKAGE_SUMMARY = """A small Python package demonstrating how to use LAPACKE \
 and CBLAS with NumPy arrays in C extension modules.\
 """
 # general include dirs and compile args required by all C extensions
