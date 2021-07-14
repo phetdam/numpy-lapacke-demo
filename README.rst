@@ -100,9 +100,8 @@ Code examples
 -------------
 
 Here are some examples that demonstrate how the ``LinearRegression`` class and
-``mnewton`` minimizer could be used. Both use functions provided by
-scikit-learn for convenience, so to run the examples, scikit-learn must of
-course be installed.
+``mnewton`` minimizer could be used. Both use scikit-learn functions for
+for convenience, so to run the examples, scikit-learn must be installed.
 
 ``LinearRegression``
 ~~~~~~~~~~~~~~~~~~~~
