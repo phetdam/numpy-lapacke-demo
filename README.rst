@@ -87,8 +87,8 @@ of the identity added to them to make the Newton direction using the modified
 Hessian a descent direction. ``mnewton`` implements Algorithm 3.3 on page 51 of
 Nocedal and Wright's *Numerical Optimization* and uses the returned lower
 Cholesky factor of the modified Hessian when computing the descent direction.
-The step size for the line search is chosen using a backtracking line search
-that terminates when the Armijo condition is satisfied.
+The step size for the line search satisfies the Armijo condition and is chosen
+using a backtracking line search.
 
 .. __: https://scikit-learn.org/stable/index.html
 
@@ -120,4 +120,5 @@ value decomposition.
    X, y = load_boston(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
    lr = LinearRegression(solver="svd").fit(X_train, y_train)
+   # no implementation of the score method, so we use predictions with r2_score
    print(f"test R2: {r2_score(y_test, lr.predict(X_test))}")
