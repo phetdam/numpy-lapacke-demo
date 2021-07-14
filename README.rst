@@ -74,18 +74,17 @@ TBD. `manylinux2010`__ and Windows wheels using OpenBLAS are planned.
 Package contents
 ----------------
 
-The ``npy_lapacke_demo`` package contains the subpackages
-``npy_lapacke_demo.regression`` and ``npy_lapacke_demo.solvers``. The
-``regression`` subpackage provides the ``LinearRegression`` class, implemented
-like a scikit-learn estimator, which can be used to fit a linear model with
-optional intercept by ordinary least squares, using either QR or singular value
-decompositions. The ``solvers`` subpackage provides the ``mnewton`` local
-minimizer, implemented such that it may be used as a frontend for
-`scipy.optimize.minimize`__ by passing ``mnewton`` to the ``method`` keyword
-argument. ``mnewton`` implements Newton's method with a Hessian modification,
-where any Hessians that are not positive definite have a multiple of the
-identity added to them to make the Newton direction using the modified Hessian
-a descent direction. ``mnewton`` implements Algorithm 3.3 on page 51 of
+The ``npy_lapacke_demo`` package contains the ``regression`` and ``solvers``
+subpackages. The ``regression`` subpackage provides the ``LinearRegression``
+class, implemented like a scikit-learn estimator, which can be used to fit a
+linear model with optional intercept by ordinary least squares, using either QR
+or singular value decompositions. The ``solvers`` subpackage provides the
+``mnewton`` local minimizer, implemented such that it may be used as a frontend
+for `scipy.optimize.minimize`__ by passing ``mnewton`` to the ``method``
+keyword argument. ``mnewton`` implements Newton's method with a Hessian
+modification, where any Hessians that are not positive definite have a multiple
+of the identity added to them to make the Newton direction using the modified
+Hessian a descent direction. ``mnewton`` implements Algorithm 3.3 on page 51 of
 Nocedal and Wright's *Numerical Optimization* and uses the returned lower
 Cholesky factor of the modified Hessian when computing the descent direction.
 The step size for the line search is chosen using a backtracking line search
