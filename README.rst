@@ -100,8 +100,8 @@ Code examples
 -------------
 
 Here are some examples that demonstrate how the ``LinearRegression`` class and
-``mnewton`` minimizer could be used. Both use scikit-learn functions for
-for convenience, so to run the examples, scikit-learn must be installed.
+``mnewton`` minimizer could be used. To run the first example, scikit-learn
+must be installed. NumPy and SciPy must of course be installed.
 
 ``LinearRegression``
 ~~~~~~~~~~~~~~~~~~~~
@@ -122,3 +122,19 @@ value decomposition.
    lr = LinearRegression(solver="svd").fit(X_train, y_train)
    # no implementation of the score method, so we use predictions with r2_score
    print(f"test R2: {r2_score(y_test, lr.predict(X_test))}")
+
+``mnewton``
+~~~~~~~~~~~
+
+Minimize the multivariate Rosenbrock function using Newton's method with
+diagonal Hessian modification.
+
+.. code:: python3
+
+   import numpy as np
+   from scipy.optimize import rosen, rosen_der, rosen_hess
+
+   from npy_lapacke_demo.solvers import mnewton
+
+   res = mnewton(rosen, np.zeros(5), jac=rosen_der, hess=rosen_hess)
+   print(res)
