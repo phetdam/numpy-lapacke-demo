@@ -935,7 +935,7 @@ PyDoc_STRVAR(
   "\n\n"
   "If the model has not been fitted, a :class:`RuntimeError` will be raised.\n"
   "Also, if ``X`` is not of type :class:`numpy.ndarray`, not C-contiguous,\n"
-  "not memory-aligned, and dont' have ``dtype`` double."
+  "not memory-aligned, and doesn't have ``dtype`` double, it will be copied."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -1098,6 +1098,182 @@ except_output_ar:
   Py_DECREF(output_ar);
 except_input_ar:
   Py_DECREF(input_ar);
+  return NULL;
+}
+
+// docstring for the LinearRegression score method
+PyDoc_STRVAR(
+  LinearRegression_score_doc,
+  "score(X, y, sample_weight=None, multioutput=\"uniform_average\")"
+  "\n--\n\n"
+  "Return coefficient of determination :math:`R^2` of the predictions."
+  "\n\n"
+  "If the model has not been fitted, a :class:`RuntimeError` will be raised.\n"
+  "Note that ``X``, ``y`` will be copied if they are not of type\n"
+  ":class:`numpy.ndarray`, not C-contiguous, not memory-aligned, or don't\n"
+  "have ``dtype`` double. This function provides a similar implementation to\n"
+  "the scikit-learn r2_score function with fewer multi-output options."
+  "\n\n"
+  "Parameters\n"
+  "----------\n"
+  "X : numpy.ndarray\n"
+  "    Points to evaluate the model at, shape ``(n_samples, n_features)``\n"
+  "y : numpy.ndarray\n"
+  "    True response values for the value, shape ``(n_samples, n_targets)``\n"
+  "sample_weight : numpy.ndarray, default=None\n"
+  "    Sample weights for each of the data points.\n"
+  "multioutput : {\"uniform_average\", \"raw_values\"}, "
+  "default=\"uniform_average\"\n"
+  "    Defines how :math:`R^2` scores for multiple outputs should be\n"
+  "    aggregated. If \"uniform_average\", the unweighted mean of the scores\n"
+  "    is returned, while if \"raw_values\", a numpy.ndarray of the\n"
+  "    individual scores will be returned, shape ``(n_targets,)``."
+  "\n\n"
+  "Returns\n"
+  "-------\n"
+  "float\n"
+  "    Coefficient of determination for the "
+);
+// argument names known to LinearRegression_score
+static const char *LinearRegression_score_argnames[] = {
+  "X", "y", "sample_weight", "multioutput", NULL
+};
+/**
+ * `predict` method for the `LinearRegression` class.
+ * 
+ * No keyword arguments needed, so `kwargs` is omitted.
+ * 
+ * @param self `LinearRegression *` instance
+ * @param args `PyObject *` positional args tuple
+ * @param kwargs `PyObject *` keyword args dict, may be `NULL`
+ * @returns New reference to either `PyFloatObject *` or `PyArrayObject *`
+ */
+static PyObject *
+LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
+{
+  // input matrix, response matrix/vector, predicted response, sample weights
+  PyArrayObject *X, *y_true, *y_pred, *weights;
+  // indicate how to treat scoring in multioutput case
+  const char *multioutput;
+  // number of samples, features, targets
+  npy_intp n_samples, n_features, n_targets;
+  // returned score(s); might be PyFloatObject * or PyArrayObject *
+  PyObject *res;
+  // holds current R2 score
+  double r2_score;
+  r2_score = 0;
+  // default no weights, default multioutput value
+  weights = NULL;
+  multioutput = "uniform_average";
+  // if model is not fitted, raise RuntimeError
+  if (!self->fitted) {
+    PyErr_SetString(PyExc_RuntimeError, "cannot score with unfitted model");
+    return NULL;
+  }
+  // else fitted, so we can score. parse args and kwargs
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwargs, "OO|Os", (char **) LinearRegression_score_argnames,
+      &X, &y_true, &weights, &multioutput
+    )
+  ) {
+    return NULL;
+  }
+  // since this check is easy, we do this first. check that value of the
+  // multioutput const char * is one of the two accepted values
+  if (
+    strcmp(multioutput, "uniform_average") != 0 &&
+    strcmp(multioutput, "raw_values") != 0
+  ) {
+    PyErr_SetString(
+      PyExc_ValueError,
+      "multioutput must be one of (\"uniform_average\", \"raw_values\")"
+    );
+    return NULL;
+  }
+  // convert X, y to NPY_DOUBLE, NPY_ARRAY_IN_ARRAY ndarrays. drop borrowed refs
+  X = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) X, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (X == NULL) {
+    return NULL;
+  }
+  y_true = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) y_true, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (y_true == NULL) {
+    goto except_X;
+  }
+  // convert weights only if weights is not NULL. discard borrowed ref.
+  if (weights != NULL) {
+    weights = (PyArrayObject *) PyArray_FROM_OTF(
+      (PyObject *) weights, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+    );
+    if (weights == NULL) {
+      goto except_y_true;
+    }
+  }
+  // check dimensions. all must be nonempty. note weights might be NULL
+  if (PyArray_SIZE(X) == 0) {
+    PyErr_SetString(PyExc_ValueError, "X must be nonempty");
+    goto except_weights;
+  }
+  if (PyArray_SIZE(y_true) == 0) {
+    PyErr_SetString(PyExc_ValueError, "y must be nonempty");
+    goto except_weights;
+  }
+  if (weights != NULL && PyArray_SIZE(weights) == 0) {
+    PyErr_SetString(PyExc_ValueError, "weights must be nonempty");
+    goto except_weights;
+  }
+  // X must be 2D, weights, y must be 1D
+  if (PyArray_NDIM(X) != 2) {
+    PyErr_SetString(PyExc_ValueError, "X must be 2D");
+    goto except_weights;
+  }
+  if (PyArray_NDIM(y_true) != 1) {
+    PyErr_SetString(PyExc_ValueError, "y must be 1D");
+    goto except_weights;
+  }
+  if (weights != NULL && PyArray_NDIM(weights) != 1) {
+    PyErr_SetString(PyExc_ValueError, "weights must be 1D");
+    goto except_weights;
+  }
+  // use X to get n_samples, n_features + check that y, weights are right size
+  n_features = PyArray_DIM(X, 0);
+  n_samples = PyArray_DIM(X, 1);
+  if (PyArray_SIZE(y_true) != n_features) {
+    PyErr_SetString(PyExc_ValueError, "y must have shape (n_samples,)");
+    goto except_weights;
+  }
+  if (weights != NULL && PyArray_SIZE(weights) != n_features) {
+    PyErr_SetString(PyExc_ValueError, "weights must have shape (n_samples,)");
+    goto except_weights;
+  }
+  // call LinearRegression_predict to get predicted y values. also NPY_DOUBLE
+  // type with NPY_ARRAY_CARRAY flags (writable)
+  y_pred = (PyArrayObject *) LinearRegression_predict(self, (PyObject *) X);
+  if (y_pred == NULL) {
+    goto except_weights;
+  }
+  // same number of samples so use y_pred to get n_targets
+  n_targets = (PyArray_NDIM(y_pred) == 1) ? 1 : PyArray_DIM(y_pred, 1);
+  // handle single and multi-target cases separately
+  if(n_targets == 1) {
+
+  }
+  else {
+
+  }
+// clean up on error
+except_y_pred:
+  Py_DECREF(y_pred);
+except_weights:
+  Py_XDECREF(weights);
+except_y_true:
+  Py_DECREF(y_true);
+except_X:
+  Py_DECREF(X);
   return NULL;
 }
 
