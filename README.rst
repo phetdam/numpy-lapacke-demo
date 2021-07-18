@@ -106,8 +106,8 @@ must be installed. NumPy and SciPy must of course be installed.
 ``LinearRegression``
 ~~~~~~~~~~~~~~~~~~~~
 
-Fit a linear model with intercept by ordinary least squares on the Boston house
-prices data using SVD.
+Fit a linear model with intercept by least squares on the Boston house prices
+data using QR decomposition.
 
 .. code:: python3
 
@@ -119,7 +119,7 @@ prices data using SVD.
 
    X, y = load_boston(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
-   lr = LinearRegression(solver="svd").fit(X_train, y_train)
+   lr = LinearRegression(solver="qr").fit(X_train, y_train)
    # no implementation of the score method, so we use predictions with r2_score
    print(f"test R2: {r2_score(y_test, lr.predict(X_test))}")
 
