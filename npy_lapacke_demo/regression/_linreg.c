@@ -16,6 +16,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
+#include <numpy/npy_math.h>
 
 // npt_lapacke_demo/*.h automatically handles the different includes
 // depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
@@ -1157,7 +1158,8 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
   const char *multioutput;
   // number of samples, features, targets
   npy_intp n_samples, n_features, n_targets;
-  // returned score(s); might be PyFloatObject * or PyArrayObject *
+  // returned score(s); might be PyFloatObject * or PyArrayObject *, mean of
+  // the 
   PyObject *res;
   // holds current R2 score
   double r2_score;
@@ -1226,24 +1228,42 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "weights must be nonempty");
     goto except_weights;
   }
-  // X must be 2D, weights, y must be 1D
+  // X must be 2D, y must be 1D or 2D, weights must be 1D
   if (PyArray_NDIM(X) != 2) {
     PyErr_SetString(PyExc_ValueError, "X must be 2D");
     goto except_weights;
   }
-  if (PyArray_NDIM(y_true) != 1) {
-    PyErr_SetString(PyExc_ValueError, "y must be 1D");
+  if (PyArray_NDIM(y_true) != 1 && PyArray_NDIM(y_true) != 2) {
+    PyErr_SetString(PyExc_ValueError, "y must be 1D or 2D");
     goto except_weights;
   }
   if (weights != NULL && PyArray_NDIM(weights) != 1) {
     PyErr_SetString(PyExc_ValueError, "weights must be 1D");
     goto except_weights;
   }
-  // use X to get n_samples, n_features + check that y, weights are right size
+  // use X to get n_samples, n_features. if n_samples < 2, return NaN
   n_features = PyArray_DIM(X, 0);
   n_samples = PyArray_DIM(X, 1);
-  if (PyArray_SIZE(y_true) != n_features) {
-    PyErr_SetString(PyExc_ValueError, "y must have shape (n_samples,)");
+  if (n_samples < 2) {
+    // if warning turned into exception by user code, use normal cleanup goto
+    if (
+      PyErr_WarnEx(
+        PyExc_UserWarning, "R^2 score is not well-defined with < 2 samples", 1
+      ) < 0
+    ) {
+      goto except_weights;
+    }
+    // else do manual cleanup. note NULL may be returned on error.
+    Py_XDECREF(weights);
+    Py_DECREF(y_true);
+    Py_DECREF(X);
+    return PyFloat_FromDouble((double) NPY_NAN);
+  }
+  // check that y, weights have first dimension equal to n_samples
+  if (PyArray_DIM(y_true, 0) != n_features) {
+    PyErr_SetString(
+      PyExc_ValueError, "y must have shape (n_samples, n_targets)"
+    );
     goto except_weights;
   }
   if (weights != NULL && PyArray_SIZE(weights) != n_features) {
