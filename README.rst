@@ -106,8 +106,8 @@ must be installed. NumPy and SciPy must of course be installed.
 ``LinearRegression``
 ~~~~~~~~~~~~~~~~~~~~
 
-Fit a linear model with intercept by ordinary least squares using the singular
-value decomposition.
+Fit a linear model with intercept by ordinary least squares on the Boston house
+prices data using SVD.
 
 .. code:: python3
 
