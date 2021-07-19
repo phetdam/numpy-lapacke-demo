@@ -1353,13 +1353,13 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
     return PyFloat_FromDouble((double) NPY_NAN);
   }
   // check that y, weights have first dimension equal to n_samples
-  if (PyArray_DIM(y_true, 0) != n_features) {
+  if (PyArray_DIM(y_true, 0) != n_samples) {
     PyErr_SetString(
       PyExc_ValueError, "y must have shape (n_samples, n_targets)"
     );
     goto except_weights;
   }
-  if (weights != NULL && PyArray_SIZE(weights) != n_features) {
+  if (weights != NULL && PyArray_SIZE(weights) != n_samples) {
     PyErr_SetString(PyExc_ValueError, "weights must have shape (n_samples,)");
     goto except_weights;
   }
