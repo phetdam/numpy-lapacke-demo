@@ -1104,7 +1104,7 @@ except_input_ar:
 }
 
 /**
- * Computes the weighted univariate R^2 given true and predicted responses.
+ * Computes the weighted R^2 given true and predicted responses.
  * 
  * Do NOT call without proper argument checking.
  * 
@@ -1134,7 +1134,7 @@ except_input_ar:
  * @returns Univariate R^2
  */
 static double
-weighted_univariate_r2(
+weighted_r2(
   const double *y_true, const double *y_pred, const double *weights,
   npy_intp n_samples, npy_intp ldim
 )
@@ -1377,7 +1377,7 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
   // handle single and multi-target cases separately
   if(n_targets == 1) {
     // compute univariate R^2 and create Python float from r2_score
-    r2_score = weighted_univariate_r2(
+    r2_score = weighted_r2(
       y_true_data, y_pred_data,
       (weights == NULL) ? NULL : (double *) PyArray_DATA(weights), n_samples, 1
     );
@@ -1398,7 +1398,7 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
     // compute R^2 for each column of y_true, y_pred; i.e. ldim = n_targets
     // and the starting pointer to the data is shifted by the column index
     for (npy_intp i = 0; i < n_targets; i++) {
-      res_data[i] = weighted_univariate_r2(
+      res_data[i] = weighted_r2(
         y_true_data + i, y_pred_data + i,
         (weights == NULL) ? NULL : (double *) PyArray_DATA(weights),
         n_samples, n_targets
@@ -1583,8 +1583,8 @@ PyInit__linreg(void)
     (void *) npy_vector_matrix_mean;
   Py__linreg_API[Py__linreg_compute_intercept_NUM] = \
     (void *) compute_intercept;
-  Py__linreg_API[Py__linreg_weighted_univariate_r2_NUM] = \
-    (void *) weighted_univariate_r2;
+  Py__linreg_API[Py__linreg_weighted_r2_NUM] = \
+    (void *) weighted_r2;
   /**
    * create capsule containing address to C array API. on error, must XDECREF
    * c_api_obj, as it may be NULL on error. &LinearRegression_type reference

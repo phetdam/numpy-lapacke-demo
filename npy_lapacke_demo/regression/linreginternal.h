@@ -26,7 +26,7 @@
 // API indices for each of the exposed C functions from _linreg.c
 #define Py__linreg_npy_vector_matrix_mean_NUM 0
 #define Py__linreg_compute_intercept_NUM 1
-#define Py__linreg_weighted_univariate_r2_NUM 2
+#define Py__linreg_weighted_r2_NUM 2
 
 // in client modules, define the void ** API and the import function.
 // __INTELLISENSE__ always defined in VS Code; allows Intellisense to work here
@@ -41,10 +41,10 @@ static void **Py__linreg_API;
   (*(PyObject *\
   (*)(PyArrayObject *, PyArrayObject *, PyObject *)) \
   Py__linreg_API[Py__linreg_compute_intercept_NUM])
-#define Py__linreg_weighted_univariate_r2 \
+#define Py__linreg_weighted_r2 \
   (*(double \
   (*)(const double *, const double *, const double *, npy_intp, npy_intp)) \
-  Py__linreg_API[Py__linreg_weighted_univariate_r2_NUM])
+  Py__linreg_API[Py__linreg_weighted_r2_NUM])
 
 /**
  * Makes the `_linreg.c` C API available.
