@@ -42,39 +42,50 @@
 static void **Py__mnewton_API;
 // internal C functions from _mnewton.c
 #define Py__mnewton_remove_specified_kwargs \
-  (*(Py_ssize_t (*)(PyObject *, const char **, int)) \
+  (*(Py_ssize_t \
+  (*)(PyObject *, const char **, int)) \
   Py__mnewton_API[Py__mnewton_remove_specified_kwargs_NUM])
 #define Py__mnewton_remove_unspecified_kwargs \
-  (*(Py_ssize_t (*)(PyObject *, const char **, int)) \
+  (*(Py_ssize_t \
+  (*)(PyObject *, const char **, int)) \
   Py__mnewton_API[Py__mnewton_remove_unspecified_kwargs_NUM])
 #define Py__mnewton_npy_frob_norm \
-  (*(double (*)(PyArrayObject *)) \
+  (*(double \
+  (*)(PyArrayObject *)) \
   Py__mnewton_API[Py__mnewton_npy_frob_norm_NUM])
 #define Py__mnewton_tuple_prepend_single \
-  (*(PyTupleObject *(*)(PyObject *, PyTupleObject *)) \
+  (*(PyTupleObject *\
+  (*)(PyObject *, PyTupleObject *)) \
   Py__mnewton_API[Py__mnewton_tuple_prepend_single_NUM])
 #define Py__mnewton_loss_only_fun_call \
-  (*(PyObject *(*)(PyObject *, PyTupleObject *)) \
+  (*(PyObject *\
+  (*)(PyObject *, PyTupleObject *)) \
   Py__mnewton_API[Py__mnewton_loss_only_fun_call_NUM])
 #define Py__mnewton_compute_loss_grad \
-  (*(PyTupleObject *(*)(PyObject *, PyObject *, PyTupleObject *)) \
+  (*(PyTupleObject *\
+  (*)(PyObject *, PyObject *, PyTupleObject *)) \
   Py__mnewton_API[Py__mnewton_compute_loss_grad_NUM])
 #define Py__mnewton_compute_hessian \
-  (*(PyArrayObject *(*)(PyObject *, PyTupleObject *)) \
+  (*(PyArrayObject *\
+  (*)(PyObject *, PyTupleObject *)) \
   Py__mnewton_API[Py__mnewton_compute_hessian_NUM])
 #define Py__mnewton_populate_OptimizeResult \
-  (*(PyObject *(*)(PyArrayObject *, int, int, const char *, PyObject *, \
+  (*(PyObject *\
+  (*)(PyArrayObject *, int, int, const char *, PyObject *, \
   PyArrayObject *, PyArrayObject *, PyArrayObject *, \
   Py_ssize_t, Py_ssize_t, Py_ssize_t, Py_ssize_t, PyObject *)) \
   Py__mnewton_API[Py__mnewton_populate_OptimizeResult_NUM])
 #define Py__mnewton_lower_packed_copy \
-  (*(void (*)(const double *, double *, npy_intp n)) \
+  (*(void \
+  (*)(const double *, double *, npy_intp n)) \
   Py__mnewton_API[Py__mnewton_lower_packed_copy_NUM])
 #define Py__mnewton_compute_mnewton_descent \
-  (*(PyArrayObject *(*)(PyArrayObject *, PyArrayObject *, double, double)) \
+  (*(PyArrayObject *\
+  (*)(PyArrayObject *, PyArrayObject *, double, double)) \
   Py__mnewton_API[Py__mnewton_compute_mnewton_descent_NUM])
 #define Py__mnewton_armijo_backtrack_search \
-  (*(double (*)(PyObject *, PyTupleObject *, PyArrayObject *, PyObject *, \
+  (*(double \
+  (*)(PyObject *, PyTupleObject *, PyArrayObject *, PyObject *, \
   PyArrayObject *, PyArrayObject *, double, double, double)) \
   Py__mnewton_API[Py__mnewton_armijo_backtrack_search_NUM])
 
