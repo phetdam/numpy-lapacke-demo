@@ -79,7 +79,8 @@ def test_compute_intercept_multi(lr_multi):
     )
 
 
-def test_weighted_r2_edge(default_rng):
+@pytest.mark.parametrize("shape", [(5,), (3, 3)])
+def test_weighted_r2_edge(default_rng, shape):
     """Test the internal weighted_r2 function on some edge cases.
 
     Test in particular when y_true is constant and when y_pred == y_true,
@@ -89,15 +90,13 @@ def test_weighted_r2_edge(default_rng):
     ----------
     default_rng : np.random.Generator
         pytest fixture. See top-level package conftest.py.
+    shape : tuple
+        Shape of y_true, y_pred
     """
-    # random y_true, y_pred. first y_true is random, second is constant. y_pred
-    # set exactly equal to the second y_true.
-    y_true_1 = default_rng.normal(size=5)
-    y_true_2 = np.ones(5)
-    y_pred = y_true_1
-    # returns 1 in the case y_pred is exactly equal to y_true_1.
-    assert _linreg_internal.weighted_r2(y_true_1, y_pred) == 1.
-    # returns -np.inf if y_true has zero variance, i.e. constant
-    assert _linreg_internal.weighted_r2(y_true_2, y_pred) == -np.inf
-    # returns 1 even if two constant arrays are passed
-    assert _linreg_internal.weighted_r2(y_true_2, y_true_2) == 1.
+    # constant y_true, random y_pred
+    y_true = np.ones(shape=shape)
+    y_pred = default_rng.normal(size=shape)
+    # returns 1 in the case y_pred and y_true are equal, even if constant
+    assert _linreg_internal.weighted_r2(y_true, y_true) == 1.
+    # returns -np.inf if y_true != y_pred, y_true constant
+    assert _linreg_internal.weighted_r2(y_true, y_pred) == -np.inf

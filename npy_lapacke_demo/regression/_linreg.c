@@ -1254,8 +1254,8 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
   // how to treat scoring in multioutput case. default "uniform_average"
   const char *multioutput;
   multioutput = "uniform_average";
-  // number of samples, features, targets
-  npy_intp n_samples, n_features, n_targets;
+  // number of samples, targets. we never actually require n_features
+  npy_intp n_samples, n_targets;
   // returned score(s); might be PyFloatObject * or PyArrayObject *
   PyObject *res;
   // holds current R2 score, data pointers for y_true, y_pred
@@ -1335,8 +1335,7 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
     goto except_weights;
   }
   // use X to get n_samples, n_features. if n_samples < 2, return NaN
-  n_features = PyArray_DIM(X, 0);
-  n_samples = PyArray_DIM(X, 1);
+  n_samples = PyArray_DIM(X, 0);
   if (n_samples < 2) {
     // if warning turned into exception by user code, use normal cleanup goto
     if (

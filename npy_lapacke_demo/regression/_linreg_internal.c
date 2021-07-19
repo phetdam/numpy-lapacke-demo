@@ -9,6 +9,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
+#include <numpy/npy_math.h>
 
 // gives access to internal C functions in _linreg.c
 #include "linreginternal.h"
@@ -349,10 +350,25 @@ weighted_r2(PyObject *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "y_true, y_pred must have same shape");
     goto except_weights;
   }
-  // get y_ndim, n_samples, n_targets
+  // get y_ndim, n_samples, n_targets. warn if n_samples < 2 + return NPY_NAN
   y_ndim = PyArray_NDIM(y_true);
   n_samples = PyArray_DIM(y_true, 0);
   n_targets = (y_ndim == 1) ? 1 : PyArray_DIM(y_true, 1);
+  if (n_samples < 2) {
+    // if warning turned into exception by user code, use normal cleanup goto
+    if (
+      PyErr_WarnEx(
+        PyExc_UserWarning, "R^2 score is not well-defined with < 2 samples", 1
+      ) < 0
+    ) {
+      goto except_weights;
+    }
+    // else do manual cleanup. note NULL may be returned on error.
+    Py_XDECREF(weights);
+    Py_DECREF(y_pred);
+    Py_DECREF(y_true);
+    return PyFloat_FromDouble((double) NPY_NAN);
+  }
   // check that weights has shape (n_samples,)
   if (weights != NULL && PyArray_NDIM(weights) != 1) {
     PyErr_SetString(PyExc_ValueError, "weights must be 1D if provided");
