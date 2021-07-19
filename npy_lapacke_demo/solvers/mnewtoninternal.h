@@ -37,7 +37,7 @@
 #define Py__mnewton_armijo_backtrack_search_NUM 10
 
 // in client modules, define the void ** API and the import function.
-// __INTELLISENSE__ always defined in VS Code; allows Intellinse to work here
+// __INTELLISENSE__ always defined in VS Code; allows Intellisense to work here
 #if defined(__INTELLISENSE__) || !defined(MNEWTON_MODULE)
 static void **Py__mnewton_API;
 // internal C functions from _mnewton.c

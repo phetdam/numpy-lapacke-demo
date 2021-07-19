@@ -11,6 +11,7 @@
 #include <structmember.h>
 
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -1102,6 +1103,96 @@ except_input_ar:
   return NULL;
 }
 
+/**
+ * Computes the weighted univariate R^2 given true and predicted responses.
+ * 
+ * Do NOT call without proper argument checking.
+ * 
+ * Able to handle cases where the elements to use in calculation are not
+ * contiguous but evenly spaced in memory, for example if we are computing the
+ * R^2 for each column of a matrix laid out in row-major.
+ * 
+ * Always returns 1 if true values are equal to predicted values, even if the
+ * true values are the same exact value, i.e. variance of true is zero.
+ * 
+ * @param y_true `const double *` array holding the true response values. Must
+ *     have length at least `n_samples * ldim`. If representing a matrix, must
+ *     represent the data of the matrix in row-major layout.
+ * @param y_pred `const double *` array holding the predicted response values.
+ *     Must have length at least `n_samples * ldim`. If representing a matrix,
+ *     must represent the data of the matrix in row-major layout.
+ * @param weights `const double *` array of at least `n_samples` giving the
+ *     nonnegative weights for the samples used in computing R^2. If `NULL`,
+ *     then all the weights are set to 1 to compute an unweighted R^2. Weights
+ *     do not have to add up to 1; they are used as-is.
+ * @param n_samples `npy_intp` indicating how many samples to use when
+ *     computing the univariate R^2. Should be at least `1`, however.
+ * @param ldim `npy_intp` indicating the leading dimension of `y_true`,
+ *     `y_pred`. If `y_true`, `y_pred` are flat arrays, set to `1`, else if
+ *     `y_true`, `y_pred` are matrices in row-major layout, set to the number
+ *     of elements in a row. Same as `lda` in many BLAS/LAPACK functions.
+ * @returns Univariate R^2
+ */
+static double
+weighted_univariate_r2(
+  const double *y_true, const double *y_pred, const double *weights,
+  npy_intp n_samples, npy_intp ldim
+)
+{
+  // sample mean of y_true, weighted sample variance of y_true * weight_sum,
+  // weighted sum of squared differences between y_true and y_pred, weight sum
+  double y_true_mean, y_true_uvar, pred_uvar, weight_sum;
+  y_true_mean = y_true_uvar = pred_uvar = 0;
+  // if weights is NULL, weight_sum is n_samples, else compute sum of weights
+  if (weights == NULL) {
+    weight_sum = n_samples;
+  }
+  else {
+    weight_sum = 0;
+    for (npy_intp i = 0; i < n_samples; i++) {
+      weight_sum += weights[i];
+    }
+    weight_sum /= n_samples;
+  }
+  /**
+   * compute the weighted mean of of the true responses. note we are indexing
+   * with 1 since it makes it easier to use ldim to skip elements this way.
+   * note that when weights == NULL, i.e. no weights, cur_weight already 1.
+   */
+  for (npy_intp i = 1; i <= n_samples; i++) {
+    y_true_mean += ((weights == NULL) ? 1 : weights[i]) * y_true[ldim * i - 1];
+  }
+  y_true_mean /= weight_sum;
+  // compute the weighted sample variance of y_true * n_samples
+  for (npy_intp i = 1; i <= n_samples; i++) {
+    y_true_uvar += ((weights == NULL) ? 1 : weights[i]) * pow(
+      y_true[ldim * i - 1] - y_true_mean, 2
+    );
+  }
+  /**
+   * compute the weighted sum of squared differences between y_true, y_pred,
+   * i.e. the "residual sum of squares", stored in pred_uvar. this quantity can
+   * also be interpreted as the weighted sample variance of y_true conditional
+   * on input points and parameters multiplied by n_samples.
+   */
+  for (npy_intp i = 0; i <= n_samples; i++) {
+    pred_uvar += ((weights == NULL) ? 1 : weights[i]) * pow(
+      y_true[ldim * i - 1] - y_pred[ldim * i - 1], 2
+    );
+  }
+  // if sum of squared differences is zero, return 1. note y_true_uvar might be
+  // 0, but we ignore this since the model is technically "perfect".
+  if (pred_uvar == 0) {
+    return 1;
+  }
+  // if y_true_uvar is zero, then return -NPY_NAN (edge case)
+  if (y_true_uvar == 0) {
+    return (double) -NPY_NAN;
+  }
+  // else return the (weighted) univariate R^2
+  return 1 - pred_uvar / y_true_uvar;
+}
+
 // docstring for the LinearRegression score method
 PyDoc_STRVAR(
   LinearRegression_score_doc,
@@ -1113,7 +1204,7 @@ PyDoc_STRVAR(
   "Note that ``X``, ``y`` will be copied if they are not of type\n"
   ":class:`numpy.ndarray`, not C-contiguous, not memory-aligned, or don't\n"
   "have ``dtype`` double. This function provides a similar implementation to\n"
-  "the scikit-learn r2_score function with fewer multi-output options."
+  "the scikit-learn ``r2_score`` function with fewer multi-output options."
   "\n\n"
   "Parameters\n"
   "----------\n"
@@ -1140,33 +1231,35 @@ static const char *LinearRegression_score_argnames[] = {
   "X", "y", "sample_weight", "multioutput", NULL
 };
 /**
- * `predict` method for the `LinearRegression` class.
+ * `score` method for the `LinearRegression` class.
  * 
- * No keyword arguments needed, so `kwargs` is omitted.
+ * Implementation is based off of the `r2_score` function in `sklearn.metrics`.
  * 
  * @param self `LinearRegression *` instance
  * @param args `PyObject *` positional args tuple
  * @param kwargs `PyObject *` keyword args dict, may be `NULL`
- * @returns New reference to either `PyFloatObject *` or `PyArrayObject *`
+ * @returns New reference to either `PyFloatObject *` or `PyArrayObject *` else
+ *     `NULL` on error with exception set.
  */
 static PyObject *
 LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
 {
-  // input matrix, response matrix/vector, predicted response, sample weights
-  PyArrayObject *X, *y_true, *y_pred, *weights;
-  // indicate how to treat scoring in multioutput case
+  /**
+   * input matrix, response matrix/vector, predicted response, sample weights,
+   * array of R^2 scores that exists in multioutput case. weights and res_ar
+   * NULL by default, so they must only be Py_XDECREF'd.
+   */
+  PyArrayObject *X, *y_true, *y_pred, *weights, *res_ar;
+  weights = res_ar = NULL;
+  // how to treat scoring in multioutput case. default "uniform_average"
   const char *multioutput;
+  multioutput = "uniform_average";
   // number of samples, features, targets
   npy_intp n_samples, n_features, n_targets;
-  // returned score(s); might be PyFloatObject * or PyArrayObject *, mean of
-  // the 
+  // returned score(s); might be PyFloatObject * or PyArrayObject *
   PyObject *res;
-  // holds current R2 score
-  double r2_score;
-  r2_score = 0;
-  // default no weights, default multioutput value
-  weights = NULL;
-  multioutput = "uniform_average";
+  // holds current R2 score, data pointers for y_true, y_pred
+  double r2_score, *y_true_data, *y_pred_data;
   // if model is not fitted, raise RuntimeError
   if (!self->fitted) {
     PyErr_SetString(PyExc_RuntimeError, "cannot score with unfitted model");
@@ -1270,22 +1363,79 @@ LinearRegression_score(LinearRegression *self, PyObject *args, PyObject *kwargs)
     PyErr_SetString(PyExc_ValueError, "weights must have shape (n_samples,)");
     goto except_weights;
   }
+  // same number of samples so use y_true to get n_targets
+  n_targets = (PyArray_NDIM(y_true) == 1) ? 1 : PyArray_DIM(y_true, 1);
   // call LinearRegression_predict to get predicted y values. also NPY_DOUBLE
   // type with NPY_ARRAY_CARRAY flags (writable)
   y_pred = (PyArrayObject *) LinearRegression_predict(self, (PyObject *) X);
   if (y_pred == NULL) {
     goto except_weights;
   }
-  // same number of samples so use y_pred to get n_targets
-  n_targets = (PyArray_NDIM(y_pred) == 1) ? 1 : PyArray_DIM(y_pred, 1);
+  // get pointers to the data of y_true, y_pred
+  y_true_data = (double *) PyArray_DATA(y_true);
+  y_pred_data = (double *) PyArray_DATA(y_pred);
   // handle single and multi-target cases separately
   if(n_targets == 1) {
-
+    // compute univariate R^2 and create Python float from r2_score
+    r2_score = weighted_univariate_r2(
+      y_true_data, y_pred_data,
+      (weights == NULL) ? NULL : (double *) PyArray_DATA(weights), n_samples, 1
+    );
+    res = PyFloat_FromDouble(r2_score);
   }
   else {
-
+    // allocate new NPY_DOUBLE, NPY_ARRAY_CARRAY ndarray for R^2 scores. note
+    // we borrow the dims of y_true for this and use some pointer arithmetic
+    res_ar = (PyArrayObject *) PyArray_SimpleNew(
+      1, PyArray_DIMS(y_true) + 1, NPY_DOUBLE
+    );
+    if (res_ar == NULL) {
+      goto except_y_pred;
+    }
+    // pointer to data of res since it needs to be filled with values
+    double *res_data;
+    res_data = (double *) PyArray_DATA(res_ar);
+    // compute R^2 for each column of y_true, y_pred; i.e. ldim = n_targets
+    // and the starting pointer to the data is shifted by the column index
+    for (npy_intp i = 0; i < n_targets; i++) {
+      res_data[i] = weighted_univariate_r2(
+        y_true_data + i, y_pred_data + i,
+        (weights == NULL) ? NULL : (double *) PyArray_DATA(weights),
+        n_samples, n_targets
+      );
+    }
+    // if multioutput is "uniform_average", set res to the average of the
+    // values in res_data, i.e. the unweighted average of each column R^2 
+    if (strcmp(multioutput, "uniform_average") == 0) {
+      r2_score = 0;
+      for (npy_intp i = 0; i < n_targets; i++) {
+        r2_score += res_data[i];
+      }
+      r2_score /= n_targets;
+      res = PyFloat_FromDouble(r2_score);
+    }
+    // else just set res to res_ar, i.e. multioutput is "raw_values". since
+    // res_ar will be Py_DECREF'd later, Py_INCREF res
+    else {
+      res = (PyObject *) res_ar;
+      Py_INCREF(res);
+    }
   }
+  // if res is NULL, exception, so clean up. since res_ar is Py_XDECREF'd, this
+  // works just fine regardless of whether or not res_ar points to memory.
+  if (res == NULL) {
+    goto except_res_ar;
+  }
+  // else clean up and return
+  Py_XDECREF(res_ar);
+  Py_DECREF(y_pred);
+  Py_XDECREF(weights);
+  Py_DECREF(y_true);
+  Py_DECREF(X);
+  return res;
 // clean up on error
+except_res_ar:
+  Py_XDECREF(res_ar);
 except_y_pred:
   Py_DECREF(y_pred);
 except_weights:
@@ -1306,6 +1456,10 @@ static PyMethodDef LinearRegression_methods[] = {
   {
     "predict", (PyCFunction) LinearRegression_predict,
     METH_O, LinearRegression_predict_doc
+  },
+  {
+    "score", (PyCFunction) LinearRegression_score,
+    METH_VARARGS | METH_KEYWORDS, LinearRegression_score_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
@@ -1429,8 +1583,10 @@ PyInit__linreg(void)
     (void *) npy_vector_matrix_mean;
   Py__linreg_API[Py__linreg_compute_intercept_NUM] = \
     (void *) compute_intercept;
+  Py__linreg_API[Py__linreg_weighted_univariate_r2_NUM] = \
+    (void *) weighted_univariate_r2;
   /**
-   * create capsulte containing address to C array API. on error, must XDECREF
+   * create capsule containing address to C array API. on error, must XDECREF
    * c_api_obj, as it may be NULL on error. &LinearRegression_type reference
    * has been previously stolen, so no Py_DECREF of it on error.
    */

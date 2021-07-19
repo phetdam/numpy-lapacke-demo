@@ -21,22 +21,30 @@
 #include <numpy/arrayobject.h>
 
 // total number of function pointers stored in the void ** C API
-#define Py__linreg_API_pointers 2
+#define Py__linreg_API_pointers 3
 
 // API indices for each of the exposed C functions from _linreg.c
 #define Py__linreg_npy_vector_matrix_mean_NUM 0
 #define Py__linreg_compute_intercept_NUM 1
+#define Py__linreg_weighted_univariate_r2_NUM 2
 
 // in client modules, define the void ** API and the import function.
-#ifndef LINREG_MODULE
+// __INTELLISENSE__ always defined in VS Code; allows Intellisense to work here
+#if defined(__INTELLISENSE__) || !defined(LINREG_MODULE)
 static void **Py__linreg_API;
 // internal C functions from _linreg.c
 #define Py__linreg_npy_vector_matrix_mean \
-  (*(PyObject *(*)(PyArrayObject *)) \
+  (*(PyObject *\
+  (*)(PyArrayObject *)) \
   Py__linreg_API[Py__linreg_npy_vector_matrix_mean_NUM])
 #define Py__linreg_compute_intercept \
-  (*(PyObject *(*)(PyArrayObject *, PyArrayObject *, PyObject *)) \
+  (*(PyObject *\
+  (*)(PyArrayObject *, PyArrayObject *, PyObject *)) \
   Py__linreg_API[Py__linreg_compute_intercept_NUM])
+#define Py__linreg_weighted_univariate_r2 \
+  (*(double \
+  (*)(const double *, const double *, const double *, npy_intp, npy_intp)) \
+  Py__linreg_API[Py__linreg_weighted_univariate_r2_NUM])
 
 /**
  * Makes the `_linreg.c` C API available.
@@ -61,6 +69,6 @@ _import__linreg(void)
       return NULL; \
     } \
   }
-#endif /* LINREG_MODULE */
+#endif /* defined(__INTELLISENSE__) || !defined(LINREG_MODULE) */
 
 #endif /* NPY_LPK_LINREGINTERNAL_H */
