@@ -17,7 +17,7 @@ def test_npy_vector_matrix_mean(default_rng):
 
     Parameters
     ----------
-    default_rng : int
+    default_rng : np.random.Generator
         pytest fixture. See top-level package conftest.py.
     """
     # 1D ndarray to compute the mean for
@@ -77,3 +77,27 @@ def test_compute_intercept_multi(lr_multi):
         _linreg_internal.compute_intercept(coef_, X_mean, y_mean),
         intercept_, rtol=1e-2
     )
+
+
+def test_weighted_r2_edge(default_rng):
+    """Test the internal weighted_r2 function on some edge cases.
+
+    Test in particular when y_true is constant and when y_pred == y_true,
+    including the case where y_true is constant.
+
+    Parameters
+    ----------
+    default_rng : np.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    """
+    # random y_true, y_pred. first y_true is random, second is constant. y_pred
+    # set exactly equal to the second y_true.
+    y_true_1 = default_rng.normal(size=5)
+    y_true_2 = np.ones(5)
+    y_pred = y_true_1
+    # returns 1 in the case y_pred is exactly equal to y_true_1.
+    assert _linreg_internal.weighted_r2(y_true_1, y_pred) == 1.
+    # returns -np.inf if y_true has zero variance, i.e. constant
+    assert _linreg_internal.weighted_r2(y_true_2, y_pred) == -np.inf
+    # returns 1 even if two constant arrays are passed
+    assert _linreg_internal.weighted_r2(y_true_2, y_true_2) == 1.

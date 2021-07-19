@@ -1185,9 +1185,9 @@ weighted_r2(
   if (pred_uvar == 0) {
     return 1;
   }
-  // if y_true_uvar is zero, then return -NPY_NAN (edge case)
+  // if y_true_uvar is zero, then return -NPY_INFINITY (edge case)
   if (y_true_uvar == 0) {
-    return (double) -NPY_NAN;
+    return (double) -NPY_INFINITY;
   }
   // else return the (weighted) univariate R^2
   return 1 - pred_uvar / y_true_uvar;
