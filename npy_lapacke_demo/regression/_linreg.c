@@ -1152,21 +1152,16 @@ weighted_r2(
     for (npy_intp i = 0; i < n_samples; i++) {
       weight_sum += weights[i];
     }
-    weight_sum /= n_samples;
   }
-  /**
-   * compute the weighted mean of of the true responses. note we are indexing
-   * with 1 since it makes it easier to use ldim to skip elements this way.
-   * note that when weights == NULL, i.e. no weights, cur_weight already 1.
-   */
-  for (npy_intp i = 1; i <= n_samples; i++) {
-    y_true_mean += ((weights == NULL) ? 1 : weights[i]) * y_true[ldim * i - 1];
+  // compute the weighted mean of of the true responses
+  for (npy_intp i = 0; i < n_samples; i++) {
+    y_true_mean += ((weights == NULL) ? 1 : weights[i]) * y_true[ldim * i];
   }
   y_true_mean /= weight_sum;
   // compute the weighted sample variance of y_true * n_samples
-  for (npy_intp i = 1; i <= n_samples; i++) {
+  for (npy_intp i = 0; i < n_samples; i++) {
     y_true_uvar += ((weights == NULL) ? 1 : weights[i]) * pow(
-      y_true[ldim * i - 1] - y_true_mean, 2
+      y_true[ldim * i] - y_true_mean, 2
     );
   }
   /**
@@ -1175,9 +1170,9 @@ weighted_r2(
    * also be interpreted as the weighted sample variance of y_true conditional
    * on input points and parameters multiplied by n_samples.
    */
-  for (npy_intp i = 0; i <= n_samples; i++) {
+  for (npy_intp i = 0; i < n_samples; i++) {
     pred_uvar += ((weights == NULL) ? 1 : weights[i]) * pow(
-      y_true[ldim * i - 1] - y_pred[ldim * i - 1], 2
+      y_true[ldim * i] - y_pred[ldim * i], 2
     );
   }
   // if sum of squared differences is zero, return 1. note y_true_uvar might be

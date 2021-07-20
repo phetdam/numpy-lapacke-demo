@@ -8,6 +8,7 @@ respective Python-accessible wrappers in _linreg_internal.
 
 import numpy as np
 import pytest
+from sklearn.metrics import r2_score
 
 from .. import _linreg_internal
 
@@ -100,3 +101,52 @@ def test_weighted_r2_edge(default_rng, shape):
     assert _linreg_internal.weighted_r2(y_true, y_true) == 1.
     # returns -np.inf if y_true != y_pred, y_true constant
     assert _linreg_internal.weighted_r2(y_true, y_pred) == -np.inf
+
+
+@pytest.mark.parametrize("shape", [(5,), (3, 3)])
+def test_weighted_r2_noweight(default_rng, shape):
+    """Test the internal weighted_r2 function without sample weights.
+
+    Parameters
+    ----------
+    default_rng : np.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    shape : tuple
+        Shape of y_true, y_pred
+    """
+    # random y_true, y_pred
+    y_true = default_rng.normal(size=shape)
+    y_pred = default_rng.normal(size=shape)
+    # compute predicted R^2 score and compare against actual. note that we
+    # handle separate cases depending on the shape of y_true, y_pred
+    r2_pred = _linreg_internal.weighted_r2(y_true, y_pred)
+    if len(shape) == 1:
+        r2_true = r2_score(y_true, y_pred)
+    else:
+        r2_true = r2_score(y_true[:, 0], y_pred[:, 0])
+    assert r2_pred == r2_true
+
+
+@pytest.mark.parametrize("shape", [(5,), (3, 3)])
+def test_weighted_r2_yesweight(default_rng, shape):
+    """Test the internal weighted_r2 function with sample weights.
+
+    Parameters
+    ----------
+    default_rng : np.random.Generator
+        pytest fixture. See top-level package conftest.py.
+    shape : tuple
+        Shape of y_true, y_pred
+    """
+    # random y_true, y_pred
+    y_true = default_rng.normal(size=shape)
+    y_pred = default_rng.normal(size=shape)
+    # random nonnegative weights
+    weights = default_rng.lognormal(size=shape[0])
+    # compute predicted R^2 score and compare against actual. handle shapes.
+    r2_pred = _linreg_internal.weighted_r2(y_true, y_pred, weights=weights)
+    if len(shape) == 1:
+        r2_true = r2_score(y_true, y_pred, sample_weight=weights)
+    else:
+        r2_true = r2_score(y_true[:, 0], y_pred[:, 0], sample_weight=weights)
+    assert r2_pred == r2_true
