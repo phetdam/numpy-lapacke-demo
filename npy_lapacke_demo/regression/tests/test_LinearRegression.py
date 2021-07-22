@@ -247,3 +247,47 @@ def test_svd_solver_multi(lr_multi):
     # check that lr.rank_ == rank_ and that lr.singular_ is close enough
     assert rank_ == lr.rank_
     np.testing.assert_allclose(lr.singular_, singular_)
+
+
+def test_score_sanity(lr_default, lr_single):
+    """Test sanity of LinearRegression score method.
+
+    Parameters
+    ----------
+    lr_default : LinearRegression
+        pytest fixture. See local conftest.py.
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input + output data for single-output problem
+    X, y, _, _, _, _ = lr_single
+    # can't score with unfitted model. fit the model for later checking
+    with pytest.raises(RuntimeError, match="cannot score with unfitted model"):
+        LinearRegression().score(X, y)
+    lr_default.fit(X, y)
+    # multioutput must one of "uniform_average" or "raw_values"
+    with pytest.raises(ValueError, match="multioutput must be one of"):
+        lr_default.score(X, y, multioutput="not an option")
+    # can't fit on empty X, y, or weights. use lambda to wrap pytest.raises
+    mgr_gen = lambda x: pytest.raises(ValueError, match=f"{x} must be nonempty")
+    with mgr_gen("X"):
+        lr_default.score([], y)
+    with mgr_gen("y"):
+        lr_default.score(X, [])
+    with mgr_gen("weights"):
+        lr_default.score(X, y, sample_weight=[])
+    # X must be 2D, y must be 1D or 2D, weights must be 1D
+    with pytest.raises(ValueError, match="X must be 2D"):
+        lr_default.score(y, y)
+    with pytest.raises(ValueError, match="y must be 1D or 2D"):
+        lr_default.score(X, np.empty((3, 2, 4)))
+    with pytest.raises(ValueError, match="weights must be 1D"):
+        lr_default.score(X, y, sample_weight=np.empty((2, 3)))
+    # returns NaN if only a single example is provided
+    with pytest.warns(UserWarning, match=r"R\^2 score is not well-defined"):
+        assert np.isnan(lr_default.score([X[0]], y))
+    # X, y, weights must have same number of samples
+    with pytest.raises(ValueError, match=r"y must have shape \(n_samples,"):
+        lr_default.score(X, y[:-1])
+    with pytest.raises(ValueError, match="weights must have shape"):
+        lr_default.score(X, y, sample_weight=[1, 2])
