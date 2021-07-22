@@ -6,6 +6,7 @@ __doc__ = """Tests for the LinearRegression class provided by _linreg.
 from functools import partial
 import numpy as np
 import pytest
+from sklearn.metrics import r2_score
 
 # pylint: disable=no-name-in-module
 from .._linreg import LinearRegression
@@ -291,3 +292,45 @@ def test_score_sanity(lr_default, lr_single):
         lr_default.score(X, y[:-1])
     with pytest.raises(ValueError, match="weights must have shape"):
         lr_default.score(X, y, sample_weight=[1, 2])
+
+
+def test_score_single(lr_default, lr_single):
+    """Test LinearRegression score method on single-output problem.
+
+    Parameters
+    ----------
+    lr_default : LinearRegression
+        pytest fixture. See local conftest.py.
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    """
+    # get input + output data for single-output problem + fit model
+    X, y, _, _, _, _ = lr_single
+    lr_default.fit(X, y)
+    # check that R^2 score is same as returned by sklearn.metrics.r2_score
+    r2 = r2_score(y, lr_default.predict(X))
+    r2_hat = lr_default.score(X, y)
+    np.testing.assert_allclose(r2_hat, r2)
+
+
+@pytest.mark.parametrize("multioutput", ["uniform_average", "raw_values"])
+def test_score_multi(lr_default, lr_multi, multioutput):
+    """Test LinearRegression score method on multi-output problem.
+
+    Parameters
+    ----------
+    lr_default : LinearRegression
+        pytest fixture. See local conftest.py.
+    lr_single : tuple
+        pytest fixture. See local conftest.py.
+    multioutput : {"uniform_average", "raw_values"}
+        Value to pass to multioutput kwarg of score method that determines the
+        value returned in the case of multioutput regression.
+    """
+    # get input + output data for multi-output problem + fit model
+    X, y, _, _, _, _ = lr_multi
+    lr_default.fit(X, y)
+    # check that R^2 score is same as returned by sklearn.metrics.r2_score
+    r2 = r2_score(y, lr_default.predict(X), multioutput=multioutput)
+    r2_hat = lr_default.score(X, y, multioutput=multioutput)
+    np.testing.assert_allclose(r2_hat, r2)
