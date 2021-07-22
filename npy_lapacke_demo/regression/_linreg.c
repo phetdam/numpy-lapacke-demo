@@ -1218,8 +1218,13 @@ PyDoc_STRVAR(
   "\n\n"
   "Returns\n"
   "-------\n"
-  "float\n"
-  "    Coefficient of determination for the "
+  "float or numpy.ndarray\n"
+  "    Coefficient[s] of determination for the LinearRegression predictions\n"
+  "    the input data ``X`` and true response ``y``. If multioutput, i.e.\n"
+  "    ``y`` has shape ``(n_samples, n_targets)``, the individual :math:`R^2`\n"
+  "    scores are returned as a :class:`numpy.ndarray` shape ``(n_targets,)``\n"
+  "    containing the individual scores if ``multioutput=\"raw_values\". If\n"
+  "    ``multioutput=\"uniform_average\"``, their average is returned."
 );
 // argument names known to LinearRegression_score
 static const char *LinearRegression_score_argnames[] = {
