@@ -792,7 +792,7 @@ PyDoc_STRVAR(
   LinearRegression_fit_doc,
   "fit(X, y)"
   "\n--\n\n"
-  "Fit an ordinary least squares linear regression model given ``X``, ``y``."
+  "Fit a leastt squares linear regression model given ``X``, ``y``."
   "\n\n"
   "Returns ``self`` to allow method chaining. Note that ``X``, ``y`` will be\n"
   "copied if they are not of type :class:`numpy.ndarray`, not C-contiguous,\n"
@@ -1505,7 +1505,13 @@ PyDoc_STRVAR(
   "    ``(min(n_samples, n_features),)`` if ``solver=\"svd\"``, else ``None``."
   "\n\n"
   "Methods\n"
-  "-------"
+  "-------\n"
+  "fit(X, y)\n"
+  "    Fit a least squares linear regression model given ``X``, ``y``.\n"
+  "predict(X)\n"
+  "    Compute predicted response given new inputs ``X``.\n"
+  "score(X, y, sample_weight=None, multioutput=\"uniform_average\")\n"
+  "    Return coefficient of determination :math:`R^2` of the predictions."
 );
 // the LinearRegression type object
 static PyTypeObject LinearRegression_type = {
