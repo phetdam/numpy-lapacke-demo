@@ -1010,7 +1010,35 @@ PyDoc_STRVAR(
   "    Hessian of ``fun``, with signature ``hess(x, *args)`` and returning\n"
   "    a :class:`numpy.ndarray` with shape ``(n_features, n_features)``. If\n"
   "    not specified, a :class:`RuntimeError` will be raised.\n"
+  "gtol : float, default=1e-4\n"
+  "    Gradient tolerance for convergence. When the average 2-norm of the\n"
+  "    gradient of ``fun`` is less than ``gtol``, the solver converges.\n"
+  "maxiter : int, default=1000\n"
+  "    Maximum number of iterations before convergence.\n"
+  "alpha : float, default=0.5\n"
+  "    Parameter controlling the sufficient decrease required to satisfy the\n"
+  "    Armijo condition in backtracking line search. Must be in ``(0, 1)``.\n"
+  "    Increasing ``alpha`` increases the required sufficient decrease.\n"
+  "beta : float, default=1e-3\n"
+  "gamma : float, default=0.8\n"
+  "    Parameter controlling the shrinkage of rejected trial step sizes. Must\n"
+  "    be in ``(0, 1)``. Increasing ``gamma`` reduces the shrinkage of each\n"
+  "    rejected trial step size, resulting in a finer step size search.\n"
+  "tau_factor : float, default=2\n"
+  "**ignored\n"
+  "    Keyword argument pairs ignored by the function. Required in order to\n"
+  "    make ``mnewton`` usable as a ``scipy.optimize.minimize`` frontend."
   "\n\n"
+  "Returns\n"
+  "-------\n"
+  "scipy.optimize.OptimizeResult\n"
+  "    The optimization result as a :class:`~scipy.optimize.OptimizeResult`.\n"
+  "    Important attributes are ``x``, which holds the solution, ``jac``,\n"
+  "    holds the final gradient value, ``hess``, which holds the final\n"
+  "    Hessian value, and ``nit``, which gives the number of solver iterations."
+  "\n\n"
+  "References\n"
+  "----------\n"
   ".. [#] Nocedal, J., & Wright, S. (2006). *Numerical Optimization*.\n"
   "   Springer Science and Business Media."
 );
@@ -1210,7 +1238,7 @@ mnewton(PyObject *self, PyObject *args, PyObject *kwargs)
   n_hev++;
   // optimize while not converged, i.e. avg. gradient norm is >= tolerance and
   // we have not reached the maximum iteration limit
-  while (npy_frob_norm(jac_x) >= gtol && n_iter < maxiter) {
+  while (npy_frob_norm(jac_x) >= n_features * gtol && n_iter < maxiter) {
     /**
      * compute modified Newton descent direction using Cholesky decomposition.
      * Hessian used to solve linear system may be modified if not positive
