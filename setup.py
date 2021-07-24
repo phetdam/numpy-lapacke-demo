@@ -14,7 +14,7 @@ and CBLAS with NumPy arrays in C extension modules.\
 """
 # general include dirs and compile args required by all C extensions
 _EXT_INCLUDE_DIRS = [f"{__package__}/include", np.get_include()]
-_EXT_COMPILE_ARGS = ["-std=gnu11"]
+_EXT_COMPILE_ARGS = []
 
 
 def _get_ext_modules(env):
