@@ -112,7 +112,6 @@ data using QR decomposition.
 .. code:: python3
 
    from sklearn.datasets import load_boston
-   from sklearn.metrics import r2_score
    from sklearn.model_selection import train_test_split
 
    from npy_lapacke_demo.regression import LinearRegression
@@ -120,8 +119,7 @@ data using QR decomposition.
    X, y = load_boston(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
    lr = LinearRegression(solver="qr").fit(X_train, y_train)
-   # no implementation of the score method, so we use predictions with r2_score
-   print(f"test R2: {r2_score(y_test, lr.predict(X_test))}")
+   print(f"test R2: {lr.score(X_test, y_test)}")
 
 ``mnewton``
 ~~~~~~~~~~~
