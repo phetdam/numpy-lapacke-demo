@@ -135,4 +135,4 @@ diagonal Hessian modification.
    from npy_lapacke_demo.solvers import mnewton
 
    res = mnewton(rosen, np.zeros(5), jac=rosen_der, hess=rosen_hess)
-   print(res)
+   print(res.x)
