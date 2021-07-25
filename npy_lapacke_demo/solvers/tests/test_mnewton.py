@@ -1,4 +1,4 @@
-__doc__ = """Tests for the mnewton function provided by _mnewton.
+"""Tests for the mnewton function provided by _mnewton.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """

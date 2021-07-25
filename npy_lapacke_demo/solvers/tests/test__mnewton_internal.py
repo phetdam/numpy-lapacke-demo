@@ -1,4 +1,4 @@
-__doc__ = """Tests for internal _mnewton functions.
+"""Tests for internal _mnewton functions.
 
 The internal C extension functions in _mnewton are exposed using their
 respective Python-accessible wrappers in _mnewton_internal.

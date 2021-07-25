@@ -1,4 +1,4 @@
-__doc__ = """pytest test fixtures for regression.tests subpackage.
+"""pytest test fixtures for regression.tests subpackage.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """

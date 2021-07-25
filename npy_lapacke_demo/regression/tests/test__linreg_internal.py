@@ -1,4 +1,4 @@
-__doc__ = """Tests for internal _linreg functions.
+"""Tests for internal _linreg functions.
 
 The internal C extension functions in _linreg are exposed using their
 respective Python-accessible wrappers in _linreg_internal.

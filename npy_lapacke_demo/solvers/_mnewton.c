@@ -1346,7 +1346,9 @@ PyDoc_STRVAR(
   "\n\n"
   "The modified Hessian is the original Hessian with an added multiple of\n"
   "the identity, checked to be positive definite by Cholesky decomposition.\n"
-  "The mnewton function can be used as a frontend for scipy.optimize.minimize."
+  "The mnewton function can be a frontend for scipy.optimize.minimize."
+  "\n\n"
+  ".. codeauthor:: Derek Huang <djh458@stern.nyu.edu>"
 );
 // _mnewton module definition
 static PyModuleDef _mnewton_module = {

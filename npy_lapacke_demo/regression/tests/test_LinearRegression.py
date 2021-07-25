@@ -1,4 +1,4 @@
-__doc__ = """Tests for the LinearRegression class provided by _linreg.
+"""Tests for the LinearRegression class provided by _linreg.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """

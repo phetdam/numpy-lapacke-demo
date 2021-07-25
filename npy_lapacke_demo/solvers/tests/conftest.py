@@ -1,4 +1,4 @@
-__doc__ = """pytest test fixtures for solvers.tests subpackage.
+"""pytest test fixtures for solvers.tests subpackage.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
