@@ -1020,11 +1020,14 @@ PyDoc_STRVAR(
   "    Armijo condition in backtracking line search. Must be in ``(0, 1)``.\n"
   "    Increasing ``alpha`` increases the required sufficient decrease.\n"
   "beta : float, default=1e-3\n"
+  "    Parameter controlling the minimum value to add to the diagonal of the\n"
+  "    Hessian matrix each iteration if the Hessian is not positive definite.\n"
   "gamma : float, default=0.8\n"
   "    Parameter controlling the shrinkage of rejected trial step sizes. Must\n"
   "    be in ``(0, 1)``. Increasing ``gamma`` reduces the shrinkage of each\n"
   "    rejected trial step size, resulting in a finer step size search.\n"
   "tau_factor : float, default=2\n"
+  "    TBD\n"
   "**ignored\n"
   "    Keyword argument pairs ignored by the function. Required in order to\n"
   "    make ``mnewton`` usable as a ``scipy.optimize.minimize`` frontend."
@@ -1053,7 +1056,7 @@ static const char *mnewton_argnames[] = {
  * see lines 596-602 in _minimize.py in scipy.optimize.
  */
 static const char *mnewton_scipy_argnames[] = {
-  "bounds", "constraints", "callback", NULL
+  "hessp", "bounds", "constraints", "callback", NULL
 };
 /**
  * Newton's method with Hessian modification.
