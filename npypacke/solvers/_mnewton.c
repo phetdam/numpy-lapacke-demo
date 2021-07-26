@@ -18,10 +18,10 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
-// npt_lapacke_demo/*.h automatically handles the different includes
-// depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
-#include "npypack/cblas.h"
-#include "npypack/lapacke.h"
+// npypacke/*.h automatically handles the different includes depending on
+// whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
+#include "npypacke/cblas.h"
+#include "npypacke/lapacke.h"
 
 // make available macros defined in mnewtoninternal.h for API initialization
 #define MNEWTON_MODULE
@@ -1400,7 +1400,7 @@ PyInit__mnewton(void)
   // create capsule containing address to C array API. PyModule_AddObject only
   // steals ref on success, so we have to XDECREF, DECREF as needed on error
   c_api_obj = PyCapsule_New(
-    (void *) Py__mnewton_API, "npypack.solvers._mnewton._C_API", NULL
+    (void *) Py__mnewton_API, "npypacke.solvers._mnewton._C_API", NULL
   );
   // PyModule_AddObject returns NULL + sets exception if value arg is NULL
   if (PyModule_AddObject(module, "_C_API", c_api_obj) < 0) {

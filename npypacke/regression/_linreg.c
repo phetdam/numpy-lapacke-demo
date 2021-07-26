@@ -19,10 +19,10 @@
 #include <numpy/arrayobject.h>
 #include <numpy/npy_math.h>
 
-// npt_lapacke_demo/*.h automatically handles the different includes
-// depending on whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
-#include "npypack/cblas.h"
-#include "npypack/lapacke.h"
+// npypacke/*.h automatically handles the different includes depending on
+// whether Intel MKL, OpenBLAS, or system CBLAS/LAPACKE is linked
+#include "npypacke/cblas.h"
+#include "npypacke/lapacke.h"
 
 // make available macros defined in linreginternal.h for API initialization
 #define LINREG_MODULE
@@ -1596,7 +1596,7 @@ PyInit__linreg(void)
    * has been previously stolen, so no Py_DECREF of it on error.
    */
   c_api_obj = PyCapsule_New(
-    (void *) Py__linreg_API, "npypack.regression._linreg._C_API", NULL
+    (void *) Py__linreg_API, "npypacke.regression._linreg._C_API", NULL
   );
   // PyModule_AddObject returns NULL + sets exception if value arg is NULL
   if (PyModule_AddObject(module, "_C_API", c_api_obj) < 0) {

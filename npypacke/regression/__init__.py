@@ -1,4 +1,4 @@
-"""Regression models subpackage for npy_lapacke_demo.
+"""Regression models subpackage for numpy-lapacke-demo.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
