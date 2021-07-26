@@ -9,7 +9,7 @@ as a ``double`` array, and performs a QR decomposition on the array using
 `LAPACKE_dgeqrf`__ and `LAPACKE_dorgqr`__. If linking to a version of the
 `GNU Scientific Library`__ (GSL), a random matrix with shape ``(4, 3)``,
 elements drawn from the standard normal distribution, will then be printed to
-screen. The PRNG used to generate the elements is seeded, so running
+screen. The PRNG used to generate the elements is seeded, so running the
 ``lapacke_demo`` executable multiple times results in the same output.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
