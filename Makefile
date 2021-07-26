@@ -1,5 +1,5 @@
-# Makefile to build npy_lapacke_demo extensions, build + execute [gtest] tests.
-# link against OpenBLAS by default but also allow Netlib and Intel MKL builds.
+# Makefile to build npy-lapacke-demo extensions. link against OpenBLAS by
+# default but also allow Netlib and Intel MKL builds.
 #
 # to specify a particular CBLAS + LAPACKE implementation to link against, set
 # one of USE_OPENBLAS, USE_NETLIB, USE_MKL to 1 when running make. if none are
@@ -7,8 +7,8 @@
 #
 # see setup.py _get_ext_modules for details on defaults.
 
-# package name
-pkg_name = npy_lapacke_demo
+# Python package name, different from overall project name
+pkg_name = npypack
 # directory for libgtest test runner code
 gtest_dir = gtest
 # C extension module dependencies
@@ -45,7 +45,7 @@ export MKL_PATH ?= /usr
 # and passed tests that print output in the brief summary report.
 PYTEST_ARGS ?= -rsxXP
 
-# to force setup.py to rebuild, add clean as a target. note that it is phony.
+# to force setup.py to rebuild, add clean as a target. note clean is phony.
 ifeq ($(REBUILD), 1)
 py_deps += clean
 endif
