@@ -1,20 +1,20 @@
-.. README.rst for npy-lapacke-demo
+.. README.rst for numpy-lapacke-demo
 
-npy-lapacke-demo
-================
+numpy-lapacke-demo
+==================
 
 A small Python package demonstrating how to use `LAPACKE`__ and `CBLAS`__ with
 NumPy arrays in C extension modules.
 
-Also includes an example of making LAPACKE calls from normal C code in the
-`lapacke_demo`__ directory. See the corresponding ``lapacke_demo/README.rst``
-for details on building and running the example.
+The project repository also includes an example of making LAPACKE calls from
+normal C code in the `lapacke_demo`__ directory. See the corresponding
+``lapacke_demo/README.rst`` for details on building and running the example.
 
 .. __: https://www.netlib.org/lapack/lapacke.html
 
 .. __: http://www.netlib.org/blas/
 
-.. __: https://github.com/phetdam/npy-lapacke-demo/tree/master/lapacke_demo
+.. __: https://github.com/phetdam/numpy-lapacke-demo/tree/master/lapacke_demo
 
 
 Installation
@@ -43,7 +43,7 @@ TBD. However, the code will be written so that the C extensions can be built
 with either `Intel MKL`__, `OpenBLAS`__, or standard system CBLAS and LAPACKE
 implementations. But note that unless linked against Intel MKL using ILP64
 interface [#]_ or with OpenBLAS using 64-bit ``int``, i.e. built with
-``INTERFACE64=1``, no ``npypack`` function or method that accepts NumPy arrays
+``INTERFACE64=1``, no ``npypacke`` function or method that accepts NumPy arrays
 should be passed arrays containing more elements than can be held in a 32-bit
 ``int``, as an ``OverflowError`` will be raised. However, since this package is
 intended for demonstration purposes, you shouldn't be using it for true
@@ -74,7 +74,7 @@ TBD. `manylinux2010`__ and Windows wheels using OpenBLAS are planned.
 Package contents
 ----------------
 
-The ``npypack`` package contains the ``regression`` and ``solvers``
+The ``npypacke`` package contains the ``regression`` and ``solvers``
 subpackages. The ``regression`` subpackage provides the ``LinearRegression``
 class, implemented like a `scikit-learn`__ estimator, which can be used to fit
 a linear model with optional intercept by ordinary least squares, using either
@@ -114,7 +114,7 @@ data using QR decomposition.
    from sklearn.datasets import load_boston
    from sklearn.model_selection import train_test_split
 
-   from npypack.regression import LinearRegression
+   from npypackee.regression import LinearRegression
 
    X, y = load_boston(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
@@ -132,7 +132,7 @@ diagonal Hessian modification.
    import numpy as np
    from scipy.optimize import rosen, rosen_der, rosen_hess
 
-   from npypack.solvers import mnewton
+   from npypacke.solvers import mnewton
 
    res = mnewton(rosen, np.zeros(5), jac=rosen_der, hess=rosen_hess)
    print(res.x)
