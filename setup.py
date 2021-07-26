@@ -1,4 +1,4 @@
-"""setup.py to build npy-lapacke-demo C extension modules.
+"""setup.py to build numpy-lapacke-demo C extension modules.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
@@ -8,10 +8,10 @@ import os
 from setuptools import Extension, find_packages, setup
 import warnings
 
-from npypack import __package__, __version__
+from npypacke import __package__, __version__
 
 # package name and summary/short description
-_PACKAGE_NAME = "npy-lapacke-demo"
+_PACKAGE_NAME = "numpy-lapacke-demo"
 _PACKAGE_SUMMARY = """A small Python package demonstrating how to use LAPACKE \
 and CBLAS with NumPy arrays in C extension modules.\
 """
@@ -184,7 +184,7 @@ def _setup():
         author="Derek Huang",
         author_email="djh458@stern.nyu.edu",
         license="MIT",
-        url="https://github.com/phetdam/npy-lapacke-demo",
+        url="https://github.com/phetdam/numpy-lapacke-demo",
         packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
