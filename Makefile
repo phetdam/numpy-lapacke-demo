@@ -16,9 +16,8 @@ ext_deps = $(pkg_name)/regression/_linreg.c $(pkg_name)/solvers/_mnewton.c
 # Python source dependencies. important to include setup.py, which does config
 py_deps = setup.py $(wildcard $(pkg_name)/*.py) \
 	$(wildcard $(pkg_name)/regression/*.py)
-# C and C++ compilers, of course
+# C compiler, of course
 CC = gcc
-CXX = g++
 # set python; on docker specify PYTHON value externally using absolute path
 PYTHON = python3
 # since setup.py won't rebuild if re-run without changing the source, i.e. if
