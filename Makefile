@@ -1,4 +1,4 @@
-# Makefile to build npy-lapacke-demo extensions. link against OpenBLAS by
+# Makefile to build numpy-lapacke-demo extensions. link against OpenBLAS by
 # default but also allow Netlib and Intel MKL builds.
 #
 # to specify a particular CBLAS + LAPACKE implementation to link against, set
@@ -8,7 +8,7 @@
 # see setup.py _get_ext_modules for details on defaults.
 
 # Python package name, different from overall project name
-pkg_name = npypack
+pkg_name = npypacke
 # directory for libgtest test runner code
 gtest_dir = gtest
 # C extension module dependencies
