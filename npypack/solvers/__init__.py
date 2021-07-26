@@ -1,4 +1,4 @@
-"""Minimization algorithms subpackage for npy_lapacke_demo.
+"""Minimization algorithms subpackage for npy-lapacke-demo.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """

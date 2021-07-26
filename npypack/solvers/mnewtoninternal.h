@@ -100,7 +100,7 @@ static int
 _import__mnewton(void)
 {
   Py__mnewton_API = (void **) PyCapsule_Import(
-    "npy_lapacke_demo.solvers._mnewton._C_API", 0
+    "npypack.solvers._mnewton._C_API", 0
   );
   return (Py__mnewton_API == NULL) ? -1 : 0;
 }

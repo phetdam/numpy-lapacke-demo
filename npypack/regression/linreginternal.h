@@ -57,7 +57,7 @@ static int
 _import__linreg(void)
 {
   Py__linreg_API = (void **) PyCapsule_Import(
-    "npy_lapacke_demo.regression._linreg._C_API", 0
+    "npypack.regression._linreg._C_API", 0
   );
   return (Py__linreg_API == NULL) ? -1 : 0;
 }

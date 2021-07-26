@@ -1,4 +1,4 @@
-__doc__ = """Top-level __init__.py for npy_lapacke_demo.
+__doc__ = """Top-level __init__.py for npy-lapacke-demo.
 
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
