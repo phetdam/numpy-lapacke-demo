@@ -23,7 +23,7 @@ CXX = g++
 PYTHON = python3
 # since setup.py won't rebuild if re-run without changing the source, i.e. if
 # you just pass USE_OPENBLAS=1 instead of USE_NETLIB=1, set to 1 to rebuild.
-FORCE_BUILD ?=
+REBUILD ?=
 # general build flags to pass to setup.py build, build_ext
 BUILD_FLAGS =
 # flags to pass to setup.py dist, bdist_wheel, sdist
