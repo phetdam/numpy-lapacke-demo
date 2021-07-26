@@ -1,14 +1,17 @@
-# setup.py to build npy_lapacke_demo C extension modules.
+"""setup.py to build npy-lapacke-demo C extension modules.
+
+.. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
+"""
 
 import numpy as np
 import os
 from setuptools import Extension, find_packages, setup
 import warnings
 
-from npy_lapacke_demo import __package__, __version__
+from npypack import __package__, __version__
 
 # package name and summary/short description
-_PACKAGE_NAME = __package__
+_PACKAGE_NAME = "npy-lapacke-demo"
 _PACKAGE_SUMMARY = """A small Python package demonstrating how to use LAPACKE \
 and CBLAS with NumPy arrays in C extension modules.\
 """
@@ -137,7 +140,7 @@ def _get_ext_modules(env):
     )
     # return C extension modules
     return [
-        # npy_lapacke_demo.regression._linreg, providing LinearRegression class
+        # npypack.regression._linreg, providing LinearRegression class
         Extension(
             name="regression._linreg",
             sources=[f"{__package__}/regression/_linreg.c"],
@@ -150,7 +153,7 @@ def _get_ext_modules(env):
           include_dirs=_EXT_INCLUDE_DIRS,
           extra_compile_args=_EXT_COMPILE_ARGS
         ),
-        # npy_lapacke_demo.solvers._mnewton, providing mnewton function
+        # npypack.solvers._mnewton, providing mnewton function
         Extension(
             name="solvers._mnewton",
             sources=[f"{__package__}/solvers/_mnewton.c"],
@@ -181,7 +184,7 @@ def _setup():
         author="Derek Huang",
         author_email="djh458@stern.nyu.edu",
         license="MIT",
-        url="https://github.com/phetdam/npy_lapacke_demo",
+        url="https://github.com/phetdam/npy-lapacke-demo",
         packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
