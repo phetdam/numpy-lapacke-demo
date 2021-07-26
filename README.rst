@@ -119,7 +119,7 @@ data using QR decomposition.
    X, y = load_boston(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=7)
    lr = LinearRegression(solver="qr").fit(X_train, y_train)
-   print(f"test R2: {lr.score(X_test, y_test)}")
+   print(lr.score(X_test, y_test))
 
 ``mnewton``
 ~~~~~~~~~~~
