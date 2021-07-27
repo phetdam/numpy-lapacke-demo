@@ -680,7 +680,7 @@ static PyObject *
 LinearRegression_repr(LinearRegression *self)
 {
   return PyUnicode_FromFormat(
-    "LinearRegression(*, fit_intercept=%s, solver=%s)",
+    "LinearRegression(*, fit_intercept=%s, solver=\"%s\")",
     (self->fit_intercept) ? "True" : "False", self->solver
   );
 }
