@@ -92,8 +92,6 @@ static void **Py__mnewton_API;
 /**
  * Makes the `_mnewton.c` C API available.
  * 
- * Attempts to import from full path, current directory, and relative path.
- * 
  * @returns `-1` on failure, `0` on success.
  */
 static int
