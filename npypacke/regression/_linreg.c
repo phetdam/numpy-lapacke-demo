@@ -792,7 +792,7 @@ PyDoc_STRVAR(
   LinearRegression_fit_doc,
   "fit(X, y)"
   "\n--\n\n"
-  "Fit a leastt squares linear regression model given ``X``, ``y``."
+  "Fit a least squares linear regression model given ``X``, ``y``."
   "\n\n"
   "Returns ``self`` to allow method chaining. Note that ``X``, ``y`` will be\n"
   "copied if they are not of type :class:`numpy.ndarray`, not C-contiguous,\n"

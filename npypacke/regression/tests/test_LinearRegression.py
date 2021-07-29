@@ -49,7 +49,7 @@ def test_repr(fit_intercept, solver):
     """
     # expected repr result
     true_repr = "LinearRegression(*, "
-    true_repr += f"fit_intercept={fit_intercept}, solver={solver})"
+    true_repr += f"fit_intercept={fit_intercept}, solver=\"{solver}\")"
     # relevant LinearRegression instance
     lr = LinearRegression(fit_intercept=fit_intercept, solver=solver)
     # check that actual repr matches expected repr
