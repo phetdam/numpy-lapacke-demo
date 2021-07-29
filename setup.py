@@ -140,7 +140,7 @@ def _get_ext_modules(env):
     )
     # return C extension modules
     return [
-        # npypack.regression._linreg, providing LinearRegression class
+        # npypacke.regression._linreg, providing LinearRegression class
         Extension(
             name="regression._linreg",
             sources=[f"{__package__}/regression/_linreg.c"],
@@ -148,12 +148,12 @@ def _get_ext_modules(env):
         ),
         # wrappers for unit testing internal C functions in _linreg.c
         Extension(
-          name="regression._linreg_internal"  ,
-          sources=[f"{__package__}/regression/_linreg_internal.c"],
-          include_dirs=_EXT_INCLUDE_DIRS,
-          extra_compile_args=_EXT_COMPILE_ARGS
+            name="regression._linreg_internal",
+            sources=[f"{__package__}/regression/_linreg_internal.c"],
+            include_dirs=_EXT_INCLUDE_DIRS,
+            extra_compile_args=_EXT_COMPILE_ARGS
         ),
-        # npypack.solvers._mnewton, providing mnewton function
+        # npypacke.solvers._mnewton, providing mnewton function
         Extension(
             name="solvers._mnewton",
             sources=[f"{__package__}/solvers/_mnewton.c"],
