@@ -5,6 +5,7 @@
 
 import numpy as np
 import os
+import platform
 from setuptools import Extension, find_packages, setup
 import warnings
 
@@ -15,9 +16,13 @@ _PACKAGE_NAME = "numpy-lapacke-demo"
 _PACKAGE_SUMMARY = """A small Python package demonstrating how to use LAPACKE \
 and CBLAS with NumPy arrays in C extension modules.\
 """
-# general include dirs and compile args required by all C extensions
+# general include dirs and required by all C extensions
 _EXT_INCLUDE_DIRS = [f"{__package__}/include", np.get_include()]
-_EXT_COMPILE_ARGS = []
+# extra compile args for all C extensions, platform-dependent
+if platform.system() == "Windows":
+    _EXT_COMPILE_ARGS = ["/std:c11"]
+else:
+    _EXT_COMPILE_ARGS = ["-std=gnu11"]
 
 
 def _get_ext_modules(env):
