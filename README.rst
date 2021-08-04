@@ -35,10 +35,10 @@ From source
    `dedicated Intel article`__ gives further details on setting the Intel MKL
    interface and threading layer.
 
-   .. __: https://software.intel.com/content/www/us/en/develop/documentation/
-      onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
-      oneapi-math-kernel-library/linking-in-detail/dynamically-selecting-the-
-      interface-and-threading-layer.html
+.. __: https://software.intel.com/content/www/us/en/develop/documentation/
+   onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
+   oneapi-math-kernel-library/linking-in-detail/dynamically-selecting-the-
+   interface-and-threading-layer.html
 
 TBD. However, C extensions can be built with either `OpenBLAS`__ or standard
 system CBLAS and LAPACKE implementations. But note that unless linked against
@@ -62,9 +62,10 @@ purposes and so shouldn't be used for true "big data" applications anyways.
 From PyPI
 ~~~~~~~~~
 
-TBD. Built wheels using OpenBLAS 0.3.15 are planned. When linking against
-OpenBLAS 0.3.15 or against ``libblas`` 3.9.0 and ``liblapacke`` 3.9.0 installed
-using ``apt``, local x86-64 builds on WSL Ubuntu 20.04 LTS have succeeded.
+TBD. `manylinux`__, Windows, and MacOS linked against OpenBLAS 0.3.15 are
+planned. When linking against OpenBLAS 0.3.15 or against ``libblas`` 3.9.0 and
+``liblapacke`` 3.9.0 installed using ``apt``, local x86-64 builds on WSL Ubuntu
+20.04 LTS have succeeded.
 
 .. __: https://github.com/pypa/manylinux
 
