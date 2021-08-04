@@ -30,23 +30,23 @@ From source
    in segmentation faults. The linker line suggested by the Intel Link Line
    Advisor leads to fatal errors during runtime since some symbols cannot be
    found, while using the single dynamic library ``libmkl_rt.so`` appears to
-   [sometimes] work only when ``MKL_INTERFACE_LAYER`` is set to ``GNU,ILP64``
-   or ``GNU,LP64``. Other values result in segfaults. The
-   `dedicated Intel article`__ gives further details on setting the Intel MKL
-   interface and threading layer.
+   [occasionally] not segfault when ``MKL_INTERFACE_LAYER`` is set to
+   ``GNU,ILP64`` or ``GNU,LP64``. The `dedicated Intel article`__ gives further
+   details on setting the Intel MKL interface and threading layer.
 
 .. __: https://software.intel.com/content/www/us/en/develop/documentation/
    onemkl-linux-developer-guide/top/linking-your-application-with-the-intel-
    oneapi-math-kernel-library/linking-in-detail/dynamically-selecting-the-
    interface-and-threading-layer.html
 
-TBD. However, C extensions can be built with either `OpenBLAS`__ or standard
-system CBLAS and LAPACKE implementations. But note that unless linked against
-Intel MKL using ILP64 interface [#]_ or with OpenBLAS using 64-bit ``int``,
-i.e. built with ``INTERFACE64=1``, no ``npypacke`` function or method that
-accepts NumPy arrays should be passed arrays requiring 64-bit indexing as an
-``OverflowError`` will be raised. Do note that this package is for demonstration
-purposes and so shouldn't be used for true "big data" applications anyways.
+TBD. However, the C extension modules can be built with either `OpenBLAS`__ or
+standard system CBLAS and LAPACKE implementations. But note that unless linked
+against Intel MKL using ILP64 interface [#]_ or with OpenBLAS using 64-bit
+``int``, i.e. built with ``INTERFACE64=1``, no ``npypacke`` function or method
+that accepts NumPy arrays should be passed arrays requiring 64-bit indexing as
+an ``OverflowError`` will be raised. Do note that this package is for
+demonstration purposes and so shouldn't be used for true "big data"
+applications anyways.
 
 .. __: https://www.openblas.net/
 
@@ -63,11 +63,14 @@ From PyPI
 ~~~~~~~~~
 
 TBD. `manylinux`__, Windows, and MacOS linked against OpenBLAS 0.3.15 are
-planned. When linking against OpenBLAS 0.3.15 or against ``libblas`` 3.9.0 and
-``liblapacke`` 3.9.0 installed using ``apt``, local x86-64 builds on WSL Ubuntu
-20.04 LTS have succeeded.
+planned, to be built on GitHub Actions runners using `cibuildwheel`__. Local
+x86-64 builds on WSL Ubuntu 20.04 LTS linking against OpenBLAS 0.3.15 or
+against ``libblas`` 3.9.0 and ``liblapacke`` 3.9.0 installed using ``apt``
+have succeeded.
 
 .. __: https://github.com/pypa/manylinux
+
+.. __: https://cibuildwheel.readthedocs.io/
 
 
 Package contents
