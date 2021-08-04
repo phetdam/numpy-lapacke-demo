@@ -190,6 +190,16 @@ def _setup():
         author_email="djh458@stern.nyu.edu",
         license="MIT",
         url="https://github.com/phetdam/numpy-lapacke-demo",
+        classifiers=[
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: POSIX :: Linux",
+            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
+        ],
+        project_urls={
+            "Source": "https://github.com/phetdam/numpy-lapacke-demo"
+        },
         packages=find_packages(),
         python_requires=">=3.6",
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
