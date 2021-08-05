@@ -1,0 +1,79 @@
+# build and test. deploy will be implemented later.
+
+name: build
+
+# only build on schedule, during releases, or upon manual request
+on:
+  schedule:
+  # daily 0423 UTC job, 0023 EST during DST and 2323 EST otherwise
+  - cron: "23 4 * * *"
+  push:
+    tags:
+    - v*
+  workflow_dispatch:
+
+jobs:
+  # build 32-bit manylinux1, manylinux2010, Windows wheels. MacOS is 64-bit.
+  build_wheels_32:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # define virtual machines to build on + manylinux types to build for
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        manylinux: [manylinux1, manylinux2010]
+        # prevent Windows, MacOS wheels from being built twice
+        exclude:
+        - os: windows-latest
+          manylinux: manylinux2010
+        - os: macos-latest
+          manylinux: manylinux2010
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build and test wheels
+      uses: pypa/cibuildwheel@v2.0.1
+      with:
+        # to use the PyPA publish action, we want everything in dist
+        output-dir: dist
+      env:
+        # python versions to build (skip PyPy). skip other manylinux archs
+        CIBW_BUILD: cp36-* cp37-* cp38-* cp39-*
+        CIBW_SKIP: "*-manylinux_aarch64 *-manylinux_ppc64le *-manylinux_s390x"
+        # build only the 32-bit architectures
+        CIBW_ARCHS: auto32
+        # always use pip to build. install pre-install reqs for setup.py
+        CIBW_BUILD_FRONTEND: pip
+        CIBW_BEFORE_BUILD: pip install -r install_requires.txt
+        # build both manylinux1 and manylinux2010 for i686
+        CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
+        # extras_requires to install (also installs deps) + testing command
+        CIBW_TEST_EXTRAS: tests
+        CIBW_TEST_COMMAND: >
+          pytest -rsxXP -v --pyargs npypacke.regression.tests &&
+          pytest -rsxXP -v --pyargs npypacke.solvers.tests
+        # increase pip verbosity during build so we can see compiler output
+        CIBW_BUILD_VERBOSITY: 1
+    - name: Upload wheel artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: dist_artifact
+        path: dist/*.whl
+        if-no-files-found: error
+
+  # simply create tar.gz in dist which is uploaded to dist_artifact
+  build_sdist:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    # setup.py uses NumPy's get_include function and setuptools
+    - name: Install sdist requirements
+      run: pip3 install -r install_requires.txt
+    - name: Create tar.gz sdist
+      run: python3 setup.py sdist
+    - name: Upload sdist artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: dist_artifact
+        path: dist
+        if-no-files-found: error
