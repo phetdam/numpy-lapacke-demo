@@ -35,6 +35,7 @@ jobs:
       run: |
         mkdir $OPENBLAS_PATH
         cd $OPENBLAS_PATH
+        echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
         gh release download -R xianyi/OpenBLAS -p '*x86.zip'
         gh release download -R xianyi/OpenBLAS -p '*.tar.gz'
         tar -xf *.tar.gz
