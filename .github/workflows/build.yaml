@@ -37,6 +37,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build and install into /opt/OpenBLAS latest 32-bit OpenBLAS
+      id: openblas
       run: |
         sudo apt install gcc-multilib gfortran-multilib
         echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
@@ -46,15 +47,11 @@ jobs:
         make BINARY=32 USE_THREAD=1
         mkdir OpenBLAS
         sudo make PREFIX=$OPENBLAS_PATH install
-    - name: Notify Slack on OpenBLAS build and install failure
-      if: failure()
-      uses: voxmedia/github-action-slack-notify-build@v2
-      with:
-        channel: gh-actions-alerts
-        status: FAILED
-        # either good, warning, danger, or something like #439FE0
-        color: danger
+    - name: Set job status message on OpenBLAS build and install failure
+      if: steps.openblas.outcome == 'failure'
+      run: echo JOB_MESSAGE="failed to build + install OpenBLAS" >> $GITHUB_ENV
     - name: Build and test wheels
+      id: wheels
       uses: pypa/cibuildwheel@v2.0.1
       with:
         # to use the PyPA publish action, we want everything in dist
@@ -79,25 +76,22 @@ jobs:
           pytest -rsxXP -v --pyargs npypacke.solvers.tests
         # increase pip verbosity during build so we can see compiler output
         CIBW_BUILD_VERBOSITY: 1
-    - name: Notify Slack on i686 build and test failure
-      if: failure()
-      uses: voxmedia/github-action-slack-notify-build@v2
-      with:
-        channel: gh-actions-alerts
-        status: FAILED
-        color: danger
+    - name: Set job status message on cibuildwheel build and test failure
+      if: steps.wheels.outcome == 'failure'
+      run: echo JOB_MESSAGE="cibuildwheel build + test failure" >> $GITHUB_ENV
     - name: Upload wheel artifacts
       uses: actions/upload-artifact@v2
       with:
         name: dist_artifact
         path: dist/*.whl
         if-no-files-found: error
-    - name: Notify Slack on i686 wheel building job failure
+    - name: Notify Slack on job status and where the failure occurred
       if: failure()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
-        status: FAILED
+        status: >-
+          {{ github.job_id }}: ${{ job.status }}: ${{ env.JOB_MESSAGE }}
         color: danger
 
   # simply create tar.gz in dist which is uploaded to dist_artifact
@@ -116,6 +110,14 @@ jobs:
         name: dist_artifact
         path: dist
         if-no-files-found: error
+    # usually easy to see what has gone wrong so no status is set in env
+    - name: Notify Slack on job status if failed
+      if: failure()
+      uses: voxmedia/github-action-slack-notify-build@v2
+      with:
+        channel: gh-actions-alerts
+        status: "${{ github.job_id }}: ${{ job.status }}"
+        color: danger
 
   # notifies final job success if all jobs succeeded
   notify_success:
@@ -127,5 +129,5 @@ jobs:
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
-        status: PASSED
+        status: Success!
         color: good
