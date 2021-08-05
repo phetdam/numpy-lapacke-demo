@@ -12,6 +12,11 @@ on:
     - v*
   workflow_dispatch:
 
+env:
+  # suppress warning + specify where to install built OpenBLAS binaries
+  USE_OPENBLAS: 1
+  OPENBLAS_PATH: ${{ env.GITHUB_WORKSPACE }}/OpenBLAS
+
 jobs:
   # build 32-bit manylinux1, manylinux2010 wheels. MacOS is 64-bit.
   build_nix_32:
@@ -37,7 +42,6 @@ jobs:
         cd $(echo *.tar.gz | sed s/.tar.gz//)
         make BINARY=32 USE_THREAD=1
         mkdir OpenBLAS
-        echo "OPENBLAS_PATH=$(pwd)/OpenBLAS" >> $GITHUB_ENV
         sudo make PREFIX=$OPENBLAS_PATH install
     - name: Build and test wheels
       uses: pypa/cibuildwheel@v2.0.1
@@ -55,6 +59,8 @@ jobs:
         CIBW_BEFORE_BUILD: pip install -r install_requires.txt
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
+        # manually set OPENBLAS_PATH as part of env since we build in Docker
+        CIBW_ENVIRONMENT: OPENBLAS_PATH=$OPENBLAS_PATH
         # extras_requires to install (also installs deps) + testing command
         CIBW_TEST_EXTRAS: tests
         CIBW_TEST_COMMAND: >
