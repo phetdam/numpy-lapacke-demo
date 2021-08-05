@@ -13,9 +13,10 @@ on:
   workflow_dispatch:
 
 env:
-  # suppress warning + specify where to install built OpenBLAS binaries
+  # suppress warning + specify where to install built OpenBLAS binaries. can't
+  # use env.GITHUB_WORKSPACE since this is only available to steps.
   USE_OPENBLAS: 1
-  OPENBLAS_PATH: ${{ env.GITHUB_WORKSPACE }}/OpenBLAS
+  OPENBLAS_PATH: ${{ github.workspace }}/OpenBLAS
   # bot token required by github-action-slack-notify-build
   SLACK_BOT_TOKEN: ${{ secrets.SLACK_ACTIONS_COURIER_TOKEN }}
 
