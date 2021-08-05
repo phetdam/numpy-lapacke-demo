@@ -36,7 +36,9 @@ jobs:
         tar -xf *.tar.gz
         cd $(echo *.tar.gz | sed s/.tar.gz//)
         make BINARY=32 USE_THREAD=1
-        sudo make install
+        mkdir OpenBLAS
+        echo "OPENBLAS_PATH=$(pwd)/OpenBLAS" >> $GITHUB_ENV
+        sudo make PREFIX=$OPENBLAS_PATH install
     - name: Build and test wheels
       uses: pypa/cibuildwheel@v2.0.1
       with:
