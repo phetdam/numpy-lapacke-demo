@@ -3,6 +3,11 @@
 numpy-lapacke-demo
 ==================
 
+.. image:: https://img.shields.io/github/workflow/status/phetdam/
+   numpy-lapacke-demo/build?logo=github
+   :target: https://github.com/phetdam/numpy-lapacke-demo/actions
+   :alt: GitHub Workflow Status
+
 A small Python package demonstrating how to use `LAPACKE`__ and `CBLAS`__ with
 NumPy arrays in C extension modules.
 
