@@ -63,7 +63,7 @@ jobs:
           pip install -r install_requires.txt
           cd /project/$(echo *.tar.gz | sed s/.tar.gz//)
           make BINARY=32 USE_THREAD=1
-          sudo make PREFIX=$OPENBLAS_PATH install
+          make PREFIX=$OPENBLAS_PATH install
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
         # manually set OPENBLAS_PATH as part of env since we build in Docker
@@ -91,10 +91,10 @@ jobs:
         channel: gh-actions-alerts
         status: |
           ${{ github.job }} [job]: ${{ job.status }}
-          ============================================================
+          ==============================
           get-openblas [step]: ${{ steps.get-openblas.outcome }}
           cibuildwheel [step]: ${{ steps.cibuildwheel.outcome }}
-          ============================================================
+          ==============================
         color: danger
 
   # simply create tar.gz in dist which is uploaded to dist_artifact
