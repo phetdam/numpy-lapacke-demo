@@ -24,16 +24,9 @@ jobs:
   # build 32-bit manylinux1, manylinux2010 wheels. MacOS is 64-bit.
   build_nix_32:
     runs-on: ubuntu-latest
-    # Windows doesn't use bash shell by default
-    defaults:
-      run:
-        shell: bash
-
-    # defines manylinux specifications to build for
     strategy:
       matrix:
         manylinux: [manylinux1, manylinux2010]
-
     steps:
     - uses: actions/checkout@v2
     # OpenBLAS must be built on manylinux Docker image (i.e. with older tools)
@@ -84,8 +77,8 @@ jobs:
         path: dist/*.whl
         if-no-files-found: error
     - name: Notify Slack on job status and where the failure occurred
-      if: failure()
       # always runs if a step has failed somewhere
+      if: failure()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
