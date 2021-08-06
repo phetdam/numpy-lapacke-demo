@@ -40,9 +40,8 @@ export MKL_THREADING_LAYER ?= SEQUENTIAL
 export OPENBLAS_PATH ?= /opt/OpenBLAS/
 export NETLIB_PATH ?= /usr
 export MKL_PATH ?= /usr
-# arguments to pass to pytest. default here shows skipped, xfailed, xpassed,
-# and passed tests that print output in the brief summary report.
-PYTEST_ARGS ?= -rsxXP
+# arguments to pass to pytest if overriding pytest.ini
+PYTEST_ARGS ?=
 
 # to force setup.py to rebuild, add clean as a target. note clean is phony.
 ifeq ($(REBUILD), 1)

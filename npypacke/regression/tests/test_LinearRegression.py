@@ -27,7 +27,7 @@ def test_defaults(lr_default):
 def test_init_sanity():
     """Test sanity of LinearRegression.__init__."""
     # no positional arguments are accepted
-    with pytest.raises(TypeError, match="no positional"):
+    with pytest.raises(TypeError, match="positional"):
         LinearRegression(False, "qr")
     # only solvers allowed are qr, svd. no checking fit_intercept since any
     # Python expression will be converted into a boolean expression
