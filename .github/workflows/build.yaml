@@ -19,24 +19,55 @@ env:
   OPENBLAS_PATH: /opt/OpenBLAS
   # bot token required by github-action-slack-notify-build
   SLACK_BOT_TOKEN: ${{ secrets.SLACK_ACTIONS_COURIER_TOKEN }}
+  # delimiter separating job statuses from step statuses
+  STEP_DELIM: ==============================
 
 jobs:
+  # get latest OpenBLAS source, unpack it, and upload
+  get_openblas:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get and unpack latest OpenBLAS release using GitHub CLI
+      id: unpack-latest
+      run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
+        gh release download -R xianyi/OpenBLAS -p '*.tar.gz' && tar -xf *.tar.gz
+        echo "SRC_DIR=$(echo *.tar.gz | sed 's/\.tar\.gz//')" >> $GITHUB_ENV
+    - uses: actions/upload-artifact@v2
+      id: upload-src
+      with:
+        name: openblas-src
+        path: ${{ env.SRC_DIR }}
+        if-no-files-found: error
+    - name: Notify Slack on job failure
+      # always runs if a step has failed somewhere
+      if: failure()
+      uses: voxmedia/github-action-slack-notify-build@v2
+      with:
+        channel: gh-actions-alerts
+        status: |
+          [job] ${{ github.job }}: ${{ job.status }}
+          ${{ env.STEP_DELIM }}
+          [step] unpack-latest: ${{ steps.unpack-latest.outcome }}
+          [step] upload-src: ${{ steps.upload-src.outcome }}
+        color: danger
+
   # build 32-bit manylinux1, manylinux2010 wheels. MacOS is 64-bit.
   build_nix_32:
     runs-on: ubuntu-latest
+    needs: get_openblas
     strategy:
       matrix:
         manylinux: [manylinux1, manylinux2010]
     steps:
     - uses: actions/checkout@v2
-    # OpenBLAS must be built on manylinux Docker image (i.e. with older tools)
-    # else auditwheel errors, complaining about too-recent versioned symbols.
-    - name: Get and unpack latest OpenBLAS release using GitHub CLI
-      id: get-openblas
-      run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
-        gh release download -R xianyi/OpenBLAS -p '*.tar.gz'
-        tar -xf *.tar.gz
+    # download OpenBLAS source to current working directory. must be built on
+    # manylinux Docker image (i.e. with older toolchain) else auditwheel
+    # will complain about too-recent versioned symbols.
+    - uses: actions/download-artifact@v2
+      id: download-src
+      with:
+        name: openblas-src
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -53,10 +84,8 @@ jobs:
         # build OpenBLAS on the Docker image. repo mounted to /project.
         CIBW_BUILD_FRONTEND: pip
         CIBW_BEFORE_BUILD: |
-          pip install -r install_requires.txt
-          cd /project/$(echo *.tar.gz | sed s/.tar.gz//)
-          make BINARY=32 USE_THREAD=1
-          make PREFIX=$OPENBLAS_PATH install
+          pip install -r install_requires.txt && cd /project/$(echo OpenBLAS*)
+          make BINARY=32 USE_THREAD=1 && make PREFIX=$OPENBLAS_PATH install
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
         # manually set OPENBLAS_PATH as part of env since we build in Docker
@@ -71,6 +100,7 @@ jobs:
         # increase pip verbosity during build so we can see compiler output
         CIBW_BUILD_VERBOSITY: 1
     - name: Upload wheel artifacts
+      id: upload-wheels
       uses: actions/upload-artifact@v2
       with:
         name: dist_artifact
@@ -83,11 +113,11 @@ jobs:
       with:
         channel: gh-actions-alerts
         status: |
-          ${{ github.job }} [job]: ${{ job.status }}
-          ==============================
-          get-openblas [step]: ${{ steps.get-openblas.outcome }}
-          cibuildwheel [step]: ${{ steps.cibuildwheel.outcome }}
-          ==============================
+          [job] ${{ github.job }}: ${{ job.status }}
+          ${{ env.STEP_DELIM }}
+          [step] download-src: ${{ steps.download-src.outcome }}
+          [step] cibuildwheel: ${{ steps.cibuildwheel.outcome }}
+          [step] upload-wheels: ${{ steps.upload-wheel.outcome }}
         color: danger
 
   # simply create tar.gz in dist which is uploaded to dist_artifact
@@ -106,13 +136,12 @@ jobs:
         name: dist_artifact
         path: dist
         if-no-files-found: error
-    # usually easy to see what has gone wrong so no status is set in env
     - name: Notify Slack on job status if failed
       if: failure()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
-        status: "${{ github.job_id }} [job]: ${{ job.status }}"
+        status: "[job] ${{ github.job }}: ${{ job.status }}"
         color: danger
 
   # notifies final job success if all jobs succeeded
@@ -125,5 +154,5 @@ jobs:
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
-        status: Success!
+        status: "[workflow] ${{ github.workflow }}: ${{ job.status }}"
         color: good
