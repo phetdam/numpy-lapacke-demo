@@ -124,7 +124,7 @@ def test_weighted_r2_noweight(default_rng, shape):
         r2_true = r2_score(y_true, y_pred)
     else:
         r2_true = r2_score(y_true[:, 0], y_pred[:, 0])
-    assert np.testing.assert_allclose(r2_pred, r2_true)
+    np.testing.assert_allclose(r2_pred, r2_true)
 
 
 @pytest.mark.parametrize("shape", [(5,), (3, 3)])
@@ -149,4 +149,4 @@ def test_weighted_r2_yesweight(default_rng, shape):
         r2_true = r2_score(y_true, y_pred, sample_weight=weights)
     else:
         r2_true = r2_score(y_true[:, 0], y_pred[:, 0], sample_weight=weights)
-    assert np.testing.assert_allclose(r2_pred, r2_true)
+    np.testing.assert_allclose(r2_pred, r2_true)
