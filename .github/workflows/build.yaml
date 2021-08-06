@@ -36,19 +36,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build and install to /opt/OpenBLAS latest 32-bit OpenBLAS
+    # OpenBLAS must be built on manylinux Docker image (i.e. with older tools)
+    # else auditwheel errors, complaining about too-recent versioned symbols.
+    - name: Get and unpack latest OpenBLAS release using GitHub CLI
       id: openblas
       run: |
-        sudo apt install gcc-multilib gfortran-multilib
         echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
         gh release download -R xianyi/OpenBLAS -p '*.tar.gz'
         tar -xf *.tar.gz
-        cd $(echo *.tar.gz | sed s/.tar.gz//)
-        make BINARY=32 USE_THREAD=1
-        sudo make PREFIX=$OPENBLAS_PATH install
-    - name: Set job status message on OpenBLAS build and install failure
-      if: steps.openblas.outcome == 'failure'
-      run: echo JOB_MESSAGE="failed to build + install OpenBLAS" >> $GITHUB_ENV
     - name: Build and test wheels
       id: wheels
       uses: pypa/cibuildwheel@v2.0.1
@@ -61,17 +56,19 @@ jobs:
         CIBW_SKIP: "*-manylinux_aarch64 *-manylinux_ppc64le *-manylinux_s390x"
         # build only the 32-bit architectures
         CIBW_ARCHS: auto32
-        # always use pip to build. install pre-install reqs for setup.py
+        # always use pip to build. install pre-install reqs for setup.py and
+        # build OpenBLAS on the Docker image. repo mounted to /project.
         CIBW_BUILD_FRONTEND: pip
         CIBW_BEFORE_BUILD: |
           pip install -r install_requires.txt
-          ls /host/${{ env.OPENBLAS_PATH }}/include
+          cd /project/$(echo *.tar.gz | sed s/.tar.gz//)
+          make BINARY=32 USE_THREAD=1
+          sudo make PREFIX=$OPENBLAS_PATH install
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
-        # manually set OPENBLAS_PATH as part of env since we build in Docker.
-        # the PyPA Docker images mounts host machine FS with /host.
+        # manually set OPENBLAS_PATH as part of env since we build in Docker
         CIBW_ENVIRONMENT: >-
-          OPENBLAS_PATH=/host/${{ env.OPENBLAS_PATH }}
+          OPENBLAS_PATH=${{ env.OPENBLAS_PATH }}
           USE_OPENBLAS=${{ env.USE_OPENBLAS }}
         # extras_requires to install (also installs deps) + testing command
         CIBW_TEST_EXTRAS: tests
