@@ -68,7 +68,9 @@ jobs:
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
         # manually set OPENBLAS_PATH as part of env since we build in Docker
-        CIBW_ENVIRONMENT: OPENBLAS_PATH=$OPENBLAS_PATH
+        CIBW_ENVIRONMENT: >-
+          OPENBLAS_PATH=${{ env.OPENBLAS_PATH }}
+          USE_OPENBLAS=${{ env.USE_OPENBLAS }}
         # extras_requires to install (also installs deps) + testing command
         CIBW_TEST_EXTRAS: tests
         CIBW_TEST_COMMAND: >
@@ -91,7 +93,7 @@ jobs:
       with:
         channel: gh-actions-alerts
         status: >-
-          {{ github.job_id }}: ${{ job.status }}: ${{ env.JOB_MESSAGE }}
+          ${{ github.job_id }}: ${{ job.status }}: ${{ env.JOB_MESSAGE }}
         color: danger
 
   # simply create tar.gz in dist which is uploaded to dist_artifact
