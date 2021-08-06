@@ -16,7 +16,7 @@ env:
   # suppress warning + specify where to install built OpenBLAS binaries. can't
   # use env.GITHUB_WORKSPACE since this is only available to steps.
   USE_OPENBLAS: 1
-  OPENBLAS_PATH: ${{ github.workspace }}/OpenBLAS
+  OPENBLAS_PATH: /opt/OpenBLAS
   # bot token required by github-action-slack-notify-build
   SLACK_BOT_TOKEN: ${{ secrets.SLACK_ACTIONS_COURIER_TOKEN }}
 
@@ -36,7 +36,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build and install to OPENBLAS_PATH latest 32-bit OpenBLAS
+    - name: Build and install to /opt/OpenBLAS latest 32-bit OpenBLAS
       id: openblas
       run: |
         sudo apt install gcc-multilib gfortran-multilib
@@ -45,7 +45,6 @@ jobs:
         tar -xf *.tar.gz
         cd $(echo *.tar.gz | sed s/.tar.gz//)
         make BINARY=32 USE_THREAD=1
-        mkdir OpenBLAS
         sudo make PREFIX=$OPENBLAS_PATH install
     - name: Set job status message on OpenBLAS build and install failure
       if: steps.openblas.outcome == 'failure'
@@ -66,12 +65,13 @@ jobs:
         CIBW_BUILD_FRONTEND: pip
         CIBW_BEFORE_BUILD: |
           pip install -r install_requires.txt
-          ls $OPENBLAS_PATH/include
+          ls /host/${{ env.OPENBLAS_PATH }}/include
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
-        # manually set OPENBLAS_PATH as part of env since we build in Docker
+        # manually set OPENBLAS_PATH as part of env since we build in Docker.
+        # the PyPA Docker images mounts host machine FS with /host.
         CIBW_ENVIRONMENT: >-
-          OPENBLAS_PATH=${{ env.OPENBLAS_PATH }}
+          OPENBLAS_PATH=/host/${{ env.OPENBLAS_PATH }}
           USE_OPENBLAS=${{ env.USE_OPENBLAS }}
         # extras_requires to install (also installs deps) + testing command
         CIBW_TEST_EXTRAS: tests
