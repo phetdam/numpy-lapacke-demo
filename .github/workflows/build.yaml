@@ -35,21 +35,22 @@ env:
   STEP_DELIM: ==============================
 
 jobs:
-  # get latest OpenBLAS source, unpack it, and upload
+  # get latest OpenBLAS source gzip tarball and upload. upload is very slow if
+  # unpacked while local unpacking is fast so let each job unpack.
   get_openblas:
     runs-on: ubuntu-latest
     steps:
-    - name: Get and unpack latest OpenBLAS release using GitHub CLI
-      id: unpack-latest
+    - name: Get latest OpenBLAS release .tar.gz using GitHub CLI
+      id: download-latest
       run: |
         echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
-        gh release download -R xianyi/OpenBLAS -p '*.tar.gz' && tar -xf *.tar.gz
-        echo "SRC_DIR=$(echo *.tar.gz | sed 's/\.tar\.gz//')" >> $GITHUB_ENV
+        gh release download -R xianyi/OpenBLAS -p '*.tar.gz'
+        echo "LATEST_DIR=$(echo *.tar.gz | sed 's/\.tar\.gz//')" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v2
-      id: upload-src
+      id: upload-latest
       with:
-        name: openblas-src
-        path: ${{ env.SRC_DIR }}
+        name: openblas-tar-gz
+        path: ${{ env.LATEST_DIR }}
         if-no-files-found: error
     - name: Notify Slack on job failure
       # always runs if a step fails
@@ -60,8 +61,8 @@ jobs:
         status: |
           [job] ${{ github.job }}: ${{ job.status }}
           ${{ env.STEP_DELIM }}
-          [step] unpack-latest: ${{ steps.unpack-latest.outcome }}
-          [step] upload-src: ${{ steps.upload-src.outcome }}
+          [step] download-latest: ${{ steps.download-latest.outcome }}
+          [step] upload-latest: ${{ steps.upload-latest.outcome }}
         color: danger
 
   # build 32-bit manylinux1, manylinux2010 wheels. MacOS is 64-bit.
@@ -73,13 +74,13 @@ jobs:
         manylinux: [manylinux1, manylinux2010]
     steps:
     - uses: actions/checkout@v2
-    # download OpenBLAS source to current working directory. must be built on
-    # manylinux Docker image (i.e. with older toolchain) else auditwheel
-    # will complain about too-recent versioned symbols.
+    # download OpenBLAS tar.gz and unpack to current working directory. must be
+    # built on manylinux Docker image (i.e. with older toolchain) else
+    # auditwheel will complain about too-recent versioned symbols.
     - uses: actions/download-artifact@v2
-      id: download-src
+      id: download-tar-gz
       with:
-        name: openblas-src
+        name: openblas-tar-gz
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -90,12 +91,12 @@ jobs:
       env:
         # build only the 32-bit architectures
         CIBW_ARCHS: auto32
-        # install pre-install reqs for setup.py and build OpenBLAS on the Docker
-        # image. repo mounted to /project in Docker image.
+        # install pre-install reqs for setup.py and unpack + build OpenBLAS on
+        # the Docker image. repo mounted to /project in Docker image.
         CIBW_BEFORE_BUILD: |
-          pip install -r install_requires.txt && cd /project/$(echo OpenBLAS*)
-          make BINARY=32 USE_THREAD=1
-          make PREFIX=${{ env.OPENBLAS_PATH}} install
+          pip install -r install_requires.txt && tar -xf *.tar.gz
+          cd /project/$(echo OpenBLAS*) && make BINARY=32 USE_THREAD=1
+          make PREFIX=${{ env.OPENBLAS_PATH }} install
         # build both manylinux1 and manylinux2010 for i686
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
         # manually set OPENBLAS_PATH as part of env since we build in Docker.
@@ -118,7 +119,7 @@ jobs:
         status: |
           [job] ${{ github.job }}: ${{ job.status }}
           ${{ env.STEP_DELIM }}
-          [step] download-src: ${{ steps.download-src.outcome }}
+          [step] download-tar-gz: ${{ steps.download-tar-gz.outcome }}
           [step] cibuildwheel: ${{ steps.cibuildwheel.outcome }}
           [step] upload-wheels: ${{ steps.upload-wheel.outcome }}
         color: danger
@@ -138,9 +139,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
-      id: download-src
+      id: download-tar-gz
       with:
-        name: openblas-src
+        name: openblas-tar-gz
     # on MacOS runner, OpenBLAS fails to detect Fortran compiler despite
     # gfortran-9, -10, -11. being installed. for consistency we use gcc-9.
     # no /project prefix for MacOS building (not on Docker).
@@ -168,7 +169,7 @@ jobs:
         # note BINARY=64, INTERFACE64=1 (latter for 64-bit BLAS indexing). use
         # matrix to pass the right name for CC, FC to make.
         CIBW_BEFORE_BUILD: |
-          pip install -r install_requires.txt
+          pip install -r install_requires.txt && tar -xf *.tar.gz
           cd ${{ env.FS_PREFIX }}/$(echo OpenBLAS*)
           make BINARY=64 INTERFACE64=1 USE_THREAD=1 \
             CC=${{ env.OPENBLAS_CC }} FC=${{ env.OPENBLAS_FC }}
@@ -195,7 +196,7 @@ jobs:
         status: |
           [job] ${{ github.job }}: ${{ job.status }}
           ${{ env.STEP_DELIM }}
-          [step] download-src: ${{ steps.download-src.outcome }}
+          [step] download-tar-gz: ${{ steps.download-tar-gz.outcome }}
           [step] cibuildwheel: ${{ steps.cibuildwheel.outcome }}
           [step] upload-wheels: ${{ steps.upload-wheel.outcome }}
         color: danger
