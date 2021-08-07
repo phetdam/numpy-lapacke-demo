@@ -52,9 +52,8 @@ jobs:
         path: ${{ env.SRC_DIR }}
         if-no-files-found: error
     - name: Notify Slack on job failure
-      # always runs if a step didn't succeed. note we have to use expression
-      # syntax here since ! is a reserved YAML symbol.
-      if: ${{ !success() }}
+      # always runs if a step fails
+      if: failed()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
@@ -111,7 +110,7 @@ jobs:
         path: dist/*.whl
         if-no-files-found: error
     - name: Notify Slack on job failure and where the failure occurred
-      if: ${{ !success() }}
+      if: failed()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
@@ -169,7 +168,7 @@ jobs:
         path: dist/*.whl
         if-no-files-found: error
     - name: Notify Slack on job failure and where the failure occurred
-      if: ${{ !success() }}
+      if: failed()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
@@ -201,7 +200,7 @@ jobs:
         path: dist
         if-no-files-found: error
     - name: Notify Slack on job status if job did not succeed
-      if: ${{ !success() }}
+      if: failed()
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
