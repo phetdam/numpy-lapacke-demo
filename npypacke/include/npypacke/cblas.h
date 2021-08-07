@@ -2,7 +2,7 @@
  * @file cblas.h
  * @brief Header file to handle Intel MKL, OpenBLAS, or Netlib includes.
  * 
- * `npypack` can be linked with a reference CBLAS implementation, OpenBLAS, or
+ * `npypacke` can be linked with a reference CBLAS implementation, OpenBLAS, or
  * Intel MKL, but Intel MKL uses a different header file, `mkl.h`, while
  * OpenBLAS uses the CBLAS header `cblas.h`. This file includes the correct
  * header file given an appropriate preprocessor macro is defined, and defines

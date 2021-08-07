@@ -2,7 +2,7 @@
  * @file lapacke.h
  * @brief Header file to automatically handle Intel MKL or LAPACKE includes.
  * 
- * `npypack` can be linked with a reference LAPACKE implementation, OpenBLAS,
+ * `npypacke` can be linked with a reference LAPACKE implementation, OpenBLAS,
  * or Intel MKL, but Intel MKL uses a different header file, `mkl.h`, while
  * OpenBLAS uses the LAPACKE header `lapacke.h`. This file includes the correct
  * header file given an appropriate preprocessor macro is defined and defines

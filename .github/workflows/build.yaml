@@ -130,10 +130,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         manylinux: [manylinux1, manylinux2010]
-        # don't want to build MacOS wheels twice for no reason
+        # on MacOS runner, OpenBLAS fails to detect Fortran compiler despite
+        # gfortran-9, -10, -11. being installed. for consistency we use gcc-9.
+        CC: [gcc, gcc-9]
+        FC: [gfortran, gfortran-9]
+        # don't want to build MacOS wheels twice for no reason and don't want
+        # to use gcc-9, gfortran-9 for manylinux or gcc, gfortran for MacOS
         exclude:
         - os: macos-latest
           manylinux: manylinux2010
+        - os: macos-latest
+          CC: gcc
+          FC: gfortran
+        - os: ubuntu-latest
+          CC: gcc-9
+          FC: gfortran-9
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
@@ -149,10 +160,13 @@ jobs:
       env:
         # build only the 64-bit architectures
         CIBW_ARCHS: auto64
-        # note we have BINARY=64 here
+        # note BINARY=64, INTERFACE64=1 (latter for 64-bit BLAS indexing). use
+        # matrix to pass the right name for CC, FC to make.
         CIBW_BEFORE_BUILD: |
           pip install -r install_requires.txt && cd /project/$(echo OpenBLAS*)
-          make BINARY=64 USE_THREAD=1 && make PREFIX=$OPENBLAS_PATH install
+          make BINARY=64 INTERFACE64=1 USE_THREAD=1 \
+            CC=${{ matrix.CC }} FC=${{ matrix.FC }}
+          make PREFIX=$OPENBLAS_PATH install
         # build both manylinux1 and manylinux2010 for x86-64, i686
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux }}
         CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux }}
