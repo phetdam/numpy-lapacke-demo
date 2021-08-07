@@ -217,7 +217,7 @@ jobs:
   # notifies final job success if all jobs succeeded
   notify_success:
     runs-on: ubuntu-latest
-    needs: [build_sdist, build_nix_32]
+    needs: [build_sdist, build_nix_32, build_nix_64]
     steps:
     - name: Notify Slack on overall workflow success
       if: success()
