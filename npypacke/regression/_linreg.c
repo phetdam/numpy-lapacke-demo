@@ -821,83 +821,66 @@ PyDoc_STRVAR(
 static PyObject *
 LinearRegression_fit(LinearRegression *self, PyObject *args)
 {
-  // input ndarray and response ndarray. set to NULL so when we Py_XDECREF in
-  // PyArg_ParseTuple we don't cause segfaults.
+  // input ndarray and response ndarray
   PyArrayObject *input_ar, *output_ar;
-  input_ar = output_ar = NULL;
-  // parse input and response, converting to ndarray. must Py_XDECREF on error.
-  if (
-    !PyArg_ParseTuple(
-      args, "O&O&", PyArray_Converter, (void *) &input_ar,
-      PyArray_Converter, (void *) &output_ar
-    )
-  ) {
-    goto except;
+  // parse input and response (take any object for now)
+  if (!PyArg_ParseTuple(args, "OO", &input_ar, &output_ar)) {
+    return NULL;
+  }
+  /**
+   * convert to C-contiguous NPY_DOUBLE arrays. NPY_ARRAY_IN_ARRAY is same as
+   * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. X, y will be
+   * copied if they don't already satisfy reqs. ok to overwrite borrowed refs.
+   */
+  input_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (input_ar == NULL) {
+    return NULL;
+  }
+  output_ar = (PyArrayObject *) PyArray_FROM_OTF(
+    (PyObject *) output_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
+  );
+  if (output_ar == NULL) {
+    goto except_input_ar;
   }
   // check that input_ar and output_ar have positive size
   if (PyArray_SIZE(input_ar) < 1) {
     PyErr_SetString(PyExc_ValueError, "X must be nonempty");
-    goto except;
+    goto except_output_ar;
   }
   if (PyArray_SIZE(output_ar) < 1) {
     PyErr_SetString(PyExc_ValueError, "y must be nonempty");
-    goto except;
+    goto except_output_ar;
   }
   // check that input_ar and output_ar have appropriate shape
   if (PyArray_NDIM(input_ar) != 2) {
     PyErr_SetString(
       PyExc_ValueError, "X must have shape (n_samples, n_features)"
     );
-    goto except;
+    goto except_output_ar;
   }
   if (PyArray_NDIM(output_ar) != 1 && PyArray_NDIM(output_ar) != 2) {
     PyErr_SetString(
       PyExc_ValueError,
       "y must have shape (n_samples,) or (n_samples, n_targets)"
     );
-    goto except;
+    goto except_output_ar;
   }
   // get number of samples, number of features
-  npy_intp n_samples, n_features;
-  n_samples = PyArray_DIM(input_ar, 0);
-  n_features = PyArray_DIM(input_ar, 1);
+  npy_intp n_samples = PyArray_DIM(input_ar, 0);
+  npy_intp n_features = PyArray_DIM(input_ar, 1);
   // check that y has correct number of samples
   if (PyArray_DIM(output_ar, 0) != n_samples) {
     PyErr_SetString(PyExc_ValueError, "number of rows of X, y must match");
-    goto except;
+    goto except_output_ar;
   }
   // check that n_samples >= n_features; required
   if (n_samples < n_features) {
     PyErr_SetString(PyExc_ValueError, "n_samples >= n_features required");
-    goto except;
+    goto except_output_ar;
   }
-  /**
-   * convert to C-contiguous NPY_DOUBLE arrays. NPY_ARRAY_IN_ARRAY is same as
-   * NPY_ARRAY_CARRAY but doesn't guarantee NPY_ARRAY_WRITEABLE. use temporary
-   * PyObject * to hold the results of the cast each time. X, y will be copied
-   * if they don't already satisfy the requirements.
-   */
-  PyArrayObject *temp_ar;
-  // attempt conversion of input_ar
-  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) input_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (temp_ar == NULL) {
-    goto except;
-  }
-  // on success, we can Py_DECREF input_ar and set input_ar to temp_ar
-  Py_DECREF(input_ar);
-  input_ar = temp_ar;
-  // attempt conversion of output_ar
-  temp_ar = (PyArrayObject *) PyArray_FROM_OTF(
-    (PyObject *) output_ar, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY
-  );
-  if (temp_ar == NULL) {
-    goto except;
-  }
-  // on success, we can Py_DECREF output_ar and set output_ar to temp_ar
-  Py_DECREF(output_ar);
-  output_ar = temp_ar;
+  
   /**
    * now we can call the solving routine. check self->solver to choose solver;
    * only values are "qr" for QR decomp or "svd" for singular value decomp.
@@ -907,13 +890,13 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
   if (strcmp(self->solver, "qr") == 0) {
     // call QR solving routine (calls dgelsy). returns -1 on error
     if (qr_solver(self, input_ar, output_ar) < 0) {
-      goto except;
+      goto except_output_ar;
     }
   }
   else if (strcmp(self->solver, "svd") == 0) {
     // call SVD solving routine (calls dgelss). returns -1 on error
     if (svd_solver(self, input_ar, output_ar) < 0) {
-      goto except;
+      goto except_output_ar;
     }
   }
   // clean up input_ar, output_ar by Py_DECREF and return new ref to self
@@ -922,9 +905,10 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
   Py_INCREF(self);
   return (PyObject *) self;
 // clean up input_ar, output_ar and return NULL on exceptions
-except:
-  Py_XDECREF(input_ar);
-  Py_XDECREF(output_ar);
+except_output_ar:
+  Py_DECREF(output_ar);
+except_input_ar:
+  Py_DECREF(input_ar);
   return NULL;
 }
 
