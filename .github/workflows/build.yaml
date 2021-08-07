@@ -151,12 +151,12 @@ jobs:
         echo "OPENBLAS_CC=gcc" >> $GITHUB_ENV
         echo "OPENBLAS_FC=gfortran" >> $GITHUB_ENV
         echo "FS_PREFIX=/project" >> $GITHUB_ENV
-    - name: Use gcc-9, gfortran-9 on macos-latest and set empty prefix
+    - name: Use gcc-9, gfortran-9 on macos-latest and set workspace prefix
       if: ${{ matrix.os == 'macos-latest' }}
       run: |
         echo "OPENBLAS_CC=gcc-9" >> $GITHUB_ENV
         echo "OPENBLAS_FC=gfortran-9" >> $GITHUB_ENV
-        echo "FS_PREFIX=''" >> $GITHUB_ENV
+        echo "FS_PREFIX=${{ github.workspace }}" >> $GITHUB_ENV
     # again, build OpenBLAS on Docker image for manylinux
     - name: Build and test wheels
       id: cibuildwheel
