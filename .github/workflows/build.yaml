@@ -45,12 +45,12 @@ jobs:
       run: |
         echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
         gh release download -R xianyi/OpenBLAS -p '*.tar.gz'
-        echo "LATEST_DIR=$(echo *.tar.gz | sed 's/\.tar\.gz//')" >> $GITHUB_ENV
+        echo "OPENBLAS_TGZ=$(echo *.tar.gz)" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v2
       id: upload-latest
       with:
         name: openblas-tar-gz
-        path: ${{ env.LATEST_DIR }}
+        path: ${{ env.OPENBLAS_TGZ }}
         if-no-files-found: error
     - name: Notify Slack on job failure
       # always runs if a step fails
