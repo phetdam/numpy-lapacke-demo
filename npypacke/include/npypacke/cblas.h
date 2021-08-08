@@ -33,7 +33,7 @@
 #else
 // silence error squiggles in VS Code (__INTELLISENSE__ always defined)
 #ifndef __INTELLISENSE__
-#error "no CBLAS includes specified. try -DCBLAS_INCLUDE or -DMKL_INCLUDE"
+#error "no CBLAS includes specified. try -D(CBLAS|OPENBLAS|MKL)_INCLUDE"
 #endif /* __INTELLISENSE__ */
 #endif
 

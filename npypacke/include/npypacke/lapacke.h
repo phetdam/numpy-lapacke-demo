@@ -34,7 +34,7 @@
 #else
 // silence error squiggles in VS Code (__INTELLISENSE__ always defined)
 #ifndef __INTELLISENSE__
-#error "no LAPACKE includes specified. try -DLAPACKE_INCLUDE or -DMKL_INCLUDE"
+#error "no LAPACKE includes specified. try -D(LAPACKE|OPENBLAS|MKL)_INCLUDE"
 #endif /* __INTELLISENSE__ */
 #endif
 
