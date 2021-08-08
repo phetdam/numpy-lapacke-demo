@@ -51,7 +51,7 @@ def _get_ext_modules(env):
     if "OPENBLAS_PATH" in env:
         OPENBLAS_PATH = env["OPENBLAS_PATH"]
         import sys
-        print(OPENBLAS_PATH, file=sys.stderr)
+        print(env["OPENBLAS_PATH"], file=sys.stderr)
     else:
         warnings.warn(
             "OPENBLAS_PATH not set. defaulting to OPENBLAS_PATH=/opt/OpenBLAS"
