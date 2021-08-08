@@ -13,10 +13,11 @@ on:
   workflow_dispatch:
 
 env:
-  # suppress warning + specify where to install built OpenBLAS binaries. can't
-  # use env.GITHUB_WORKSPACE since this is only available to steps.
+  # suppress warning + specify where to install built OpenBLAS binaries. can
+  # use relative path for OpenBLAS path, which is OS-independent. as long as
+  # actions/checkout has been used, . is always GITHUB_WORKSPACE.
   USE_OPENBLAS: 1
-  OPENBLAS_PATH: ${{ github.workspace }}/OpenBLAS
+  OPENBLAS_PATH: ./OpenBLAS
   # Python versions to build and Linux archs to skip, for cibuildwheel
   CIBW_BUILD: cp36-* cp37-* cp38-* cp39-*
   CIBW_SKIP: "*-manylinux_aarch64 *-manylinux_ppc64le *-manylinux_s390x"
@@ -193,7 +194,7 @@ jobs:
       run: |
         echo "OPENBLAS_CC=gcc-9" >> $GITHUB_ENV
         echo "OPENBLAS_FC=gfortran-9" >> $GITHUB_ENV
-        echo "FS_PREFIX=${{ github.workspace }}" >> $GITHUB_ENV
+        echo "FS_PREFIX=." >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -268,10 +269,6 @@ jobs:
         # see build_nix_32 for why using | and multiple command lines fails.
         # run commands in bash to avoid Windows lack of globbing and idiocy.
         # double-quote command since OPENBLAS_MATCH is single-quoted.
-        # echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
-        # gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
-        # mkdir ${{ env.OPENBLAS_PATH }} &&
-        # unzip *.zip -d ${{ env.OPENBLAS_PATH }}
         CIBW_BEFORE_ALL: >
           bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
           --with-token && gh release download -R xianyi/OpenBLAS -p
