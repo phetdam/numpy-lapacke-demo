@@ -272,7 +272,7 @@ jobs:
         # unzip *.zip -d ${{ env.OPENBLAS_PATH }}
         CIBW_BEFORE_ALL: >
           echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
-          gh release download -R xianyi/OpenBLAS &&
+          gh release download -R xianyi/OpenBLAS -p * &&
           mkdir ${{ env.OPENBLAS_PATH }} && ls
     - name: Upload wheel artifacts
       id: upload-wheels
