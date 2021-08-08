@@ -50,8 +50,6 @@ def _get_ext_modules(env):
     # not specified in the environment, warn and use defaults.
     if "OPENBLAS_PATH" in env:
         OPENBLAS_PATH = env["OPENBLAS_PATH"]
-        import sys
-        print(env["OPENBLAS_PATH"], OPENBLAS_PATH, file=sys.stderr)
     else:
         warnings.warn(
             "OPENBLAS_PATH not set. defaulting to OPENBLAS_PATH=/opt/OpenBLAS"
@@ -145,6 +143,7 @@ def _get_ext_modules(env):
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
+    print(cblap_build_kwargs)
     # return C extension modules
     return [
         # npypacke.regression._linreg, providing LinearRegression class
