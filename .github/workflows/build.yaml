@@ -246,17 +246,17 @@ jobs:
         arch: [auto32, auto64]
     defaults:
       run:
-        # use Bash instead of PowerShell
-        shell: bash
+        # use cmd instead of PowerShell
+        shell: cmd
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
     - name: Set gh release download pattern match (auto32)
       if: matrix.arch == 'auto32'
-      run: echo "OPENBLAS_MATCH='*x86.zip'" >> $GITHUB_ENV
+      run: echo OPENBLAS_MATCH=*x86.zip >> %GITHUB_ENV%
     - name: Set gh release download pattern match (auto64)
       if: matrix.arch == 'auto64'
-      run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
+      run: echo OPENBLAS_MATCH=*x64.zip >> %GITHUB_ENV%
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -272,8 +272,8 @@ jobs:
         # unzip *.zip -d ${{ env.OPENBLAS_PATH }}
         CIBW_BEFORE_ALL: >
           echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
-          gh release download v0.3.17 -R xianyi/OpenBLAS &&
-          mkdir ${{ env.OPENBLAS_PATH }} && ls
+          gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
+          mkdir ${{ github.workspace }}\OpenBLAS && ls
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
