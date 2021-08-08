@@ -13,11 +13,9 @@ on:
   workflow_dispatch:
 
 env:
-  # suppress warning + specify where to install built OpenBLAS binaries. can
-  # use relative path for OpenBLAS path, which is OS-independent. as long as
-  # actions/checkout has been used, . is always GITHUB_WORKSPACE.
+  # suppress warning + specify where to install built OpenBLAS binaries
   USE_OPENBLAS: 1
-  OPENBLAS_PATH: ./OpenBLAS
+  OPENBLAS_PATH: ${{ github.workspace }}/OpenBLAS
   # Python versions to build and Linux archs to skip, for cibuildwheel
   CIBW_BUILD: cp36-* cp37-* cp38-* cp39-*
   CIBW_SKIP: "*-manylinux_aarch64 *-manylinux_ppc64le *-manylinux_s390x"
@@ -194,7 +192,7 @@ jobs:
       run: |
         echo "OPENBLAS_CC=gcc-9" >> $GITHUB_ENV
         echo "OPENBLAS_FC=gfortran-9" >> $GITHUB_ENV
-        echo "FS_PREFIX=." >> $GITHUB_ENV
+        echo "FS_PREFIX=${{ github.workspace }}" >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -258,6 +256,12 @@ jobs:
     - name: Set gh release download pattern match (auto64)
       if: matrix.arch == 'auto64'
       run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
+    # wslpath tskr so we can use bash in CIBW_BEFORE_ALL command. note that WSL
+    # is only enabled on Windows Server 2019, not 2016 GitHub runners.
+    - name: Convert env.OPENBLAS_PATH to WSL Linux path
+      run: >-
+        echo "OPENBLAS_WSL_PATH=$(wsl wslpath ${{ env.OPENBLAS_PATH }})" >>
+        $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -267,10 +271,10 @@ jobs:
         CIBW_ARCHS: ${{ matrix.arch }}
         # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH.
         # see build_nix_32 for why using | and multiple command lines fails.
-        # run commands in bash to avoid Windows lack of globbing and idiocy.
-        # double-quote command since OPENBLAS_MATCH is single-quoted.
+        # run commands in WSL Bash to avoid Windows lack of globbing and
+        # treating of single quotes as normal characters.
         CIBW_BEFORE_ALL: >
-          bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
+          wsl bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
           --with-token && gh release download -R xianyi/OpenBLAS -p
           ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_PATH }} &&
           unzip *.zip -d ${{ env.OPENBLAS_PATH }}"
