@@ -143,12 +143,8 @@ def _get_ext_modules(env):
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
-    # debug: check OpenBLAS includes
-    if platform.system() == "Windows":
-        OPENBLAS_PATH = OPENBLAS_PATH.replace("/", "\\")
-        print(os.listdir(path=OPENBLAS_PATH))
-        print(os.listdir(path=f"{OPENBLAS_PATH}\\include"))
-        print(os.listdir(path=f"{OPENBLAS_PATH}/include"))
+    # debug: what's in the build directory?
+    print(os.listdir())
     # return C extension modules
     return [
         # npypacke.regression._linreg, providing LinearRegression class
