@@ -84,7 +84,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: dist_artifact
-        path: dist
+        path: dist/*.tar.gz
         if-no-files-found: error
     - name: Notify Slack on job failure if job did not succeed
       if: failure()
