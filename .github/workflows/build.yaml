@@ -261,12 +261,11 @@ jobs:
       env:
         CIBW_ARCHS: ${{ matrix.arch }}
         # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH
-        CIBW_BEFORE_ALL: |
-          echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
+        CIBW_BEFORE_ALL: >
+          echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
           gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
-          #mkdir ${{ env.OPENBLAS_PATH }}
-          mkdir ${{ github.workspace }}\OpenBLAS
-          unzip -v *.zip -d ${{ github.workspace }}\OpenBLAS
+          && mkdir ${{ github.workspace }}\OpenBLAS &&
+          unzip -v *.zip -d ${{ github.workspace }}\OpenBLAS &&
           xfuffufdfdfdfdfdf23f3hof3fofy38fy3ofh34f8h3f4hf3hf8h
     - name: Upload wheel artifacts
       id: upload-wheels
