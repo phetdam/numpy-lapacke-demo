@@ -261,7 +261,8 @@ jobs:
       env:
         CIBW_ARCHS: ${{ matrix.arch }}
         # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH
-        CIBW_BEFORE_ALL: |
+        CIBW_BEFORE_BUILD: |
+          ${{ env.CIBW_BEFORE_BUILD }}
           echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
           gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
           #mkdir ${{ env.OPENBLAS_PATH }}
