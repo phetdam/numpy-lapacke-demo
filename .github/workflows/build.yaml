@@ -266,8 +266,6 @@ jobs:
           gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
           mkdir ${{ env.OPENBLAS_PATH }}
           unzip *.zip -d ${{ env.OPENBLAS_PATH }}
-          head -10 ${{ env.OPENBLAS_PATH }}/include/cblas.h    # debug
-          echo $OPENBLAS_PATH
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2

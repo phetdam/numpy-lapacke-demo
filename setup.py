@@ -143,7 +143,8 @@ def _get_ext_modules(env):
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
-    print(cblap_build_kwargs)
+    # debug: check OpenBLAS includes
+    print(os.listdir(path=f"{OPENBLAS_PATH}/include"))
     # return C extension modules
     return [
         # npypacke.regression._linreg, providing LinearRegression class
