@@ -253,10 +253,10 @@ jobs:
     # depending on matrix.arch, set a different release download match pattern
     - name: Set gh release download pattern match (auto32)
       if: matrix.arch == 'auto32'
-      run: echo "OPENBLAS_MATCH='*-x86.zip'" >> $GITHUB_ENV
+      run: echo "OPENBLAS_MATCH='*x86.zip'" >> $GITHUB_ENV
     - name: Set gh release download pattern match (auto64)
       if: matrix.arch == 'auto64'
-      run: echo "OPENBLAS_MATCH='*-x64.zip'" >> $GITHUB_ENV
+      run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
