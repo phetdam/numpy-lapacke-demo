@@ -136,6 +136,13 @@ def _get_ext_modules(env):
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
         cblap_macros = [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
+    # on Windows, MSVC doesn't support C99 _Complex type so we have to use the
+    # corresponding MSVC complex types to define LAPACK complex types
+    if platform.system() == "Windows":
+        cblap_macros += [
+            ("lapack_complex_float", "_FComplex"),
+            ("lapack_complex_double", "_DComplex")
+        ]
     # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
     cblap_build_kwargs = dict(
         include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
@@ -143,8 +150,6 @@ def _get_ext_modules(env):
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
-    # debug: what's in the build directory?
-    print(os.listdir())
     # return C extension modules
     return [
         # npypacke.regression._linreg, providing LinearRegression class

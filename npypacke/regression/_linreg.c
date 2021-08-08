@@ -899,7 +899,6 @@ LinearRegression_fit(LinearRegression *self, PyObject *args)
       goto except_output_ar;
     }
   }
-  printf("WE SURVIVED\n");
   // clean up input_ar, output_ar by Py_DECREF and return new ref to self
   Py_DECREF(input_ar);
   Py_DECREF(output_ar);

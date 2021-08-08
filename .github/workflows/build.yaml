@@ -258,10 +258,10 @@ jobs:
       run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
     # convert OPENBLAS_PATH to a Windows Bash path. the only changes are
     # replacing \ with / and [drive]: with /lowercase(drive).
-    - name: Convert env.OPENBLAS_PATH to mounted Linux path
+    - name: Convert env.OPENBLAS_PATH to Windows Bash path
       run: >-
         echo OPENBLAS_NIX_PATH=$(sed -e 's/\\/\//g' -e
-        's/^[A-Z]:/\/\L&/' -e 's/://'<<< $OPENBLAS_PATH) >> $GITHUB_ENV
+        's/^[A-Z]:/\/\L&/' -e 's/://' <<< $OPENBLAS_PATH) >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
