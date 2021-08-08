@@ -267,7 +267,7 @@ jobs:
           gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
           #mkdir ${{ env.OPENBLAS_PATH }}
           mkdir ${{ github.workspace }}\OpenBLAS
-          unzip *.zip -d ${{ github.workspace }}\OpenBLAS
+          bash -c 'unzip -v *.zip -d ${{ github.workspace }}\OpenBLAS'
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
