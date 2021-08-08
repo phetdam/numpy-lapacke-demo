@@ -240,6 +240,10 @@ jobs:
       matrix:
         # need to build win32, amd64 in separate jobs
         arch: [auto32, auto64]
+    defaults:
+      run:
+        # use Bash instead of PowerShell
+        shell: bash
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
@@ -262,6 +266,7 @@ jobs:
           gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
           mkdir ${{ env.OPENBLAS_PATH }}
           unzip *.zip -d ${{ env.OPENBLAS_PATH }}
+          ls ${{ env.OPENBLAS_PATH }}/include    # debugging command
         # see comment for CIBW_ENVIRONMENT in build_nix_32
         CIBW_ENVIRONMENT: >-
           OPENBLAS_PATH=${{ env.OPENBLAS_PATH }}
