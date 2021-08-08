@@ -266,11 +266,14 @@ jobs:
         CIBW_ARCHS: ${{ matrix.arch }}
         # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH.
         # see build_nix_32 for why using | and multiple command lines fails.
+        # echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
+        # gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
+        # mkdir ${{ env.OPENBLAS_PATH }} &&
+        # unzip *.zip -d ${{ env.OPENBLAS_PATH }}
         CIBW_BEFORE_ALL: >
           echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
-          gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
-          mkdir ${{ env.OPENBLAS_PATH }} &&
-          unzip *.zip -d ${{ env.OPENBLAS_PATH }}
+          gh release download -R xianyi/OpenBLAS &&
+          mkdir ${{ env.OPENBLAS_PATH }} && ls
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
