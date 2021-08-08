@@ -260,7 +260,7 @@ jobs:
     # is only enabled on Windows Server 2019, not 2016 GitHub runners.
     - name: Convert env.OPENBLAS_PATH to WSL Linux path
       run: >-
-        echo "OPENBLAS_WSL_PATH=$(wsl wslpath ${{ env.OPENBLAS_PATH }})" >>
+        echo 'OPENBLAS_WSL_PATH=$(wsl wslpath "${{ env.OPENBLAS_PATH }})"' >>
         $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
