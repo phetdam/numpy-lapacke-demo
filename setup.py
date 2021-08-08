@@ -144,6 +144,8 @@ def _get_ext_modules(env):
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
     # debug: check OpenBLAS includes
+    print(os.listdir(path=OPENBLAS_PATH))
+    print(os.listdir(path=f"{OPENBLAS_PATH}\\include"))
     print(os.listdir(path=f"{OPENBLAS_PATH}/include"))
     # return C extension modules
     return [
