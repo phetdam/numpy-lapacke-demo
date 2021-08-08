@@ -246,17 +246,17 @@ jobs:
         arch: [auto32, auto64]
     defaults:
       run:
-        # use cmd instead of PowerShell
-        shell: cmd
+        # use Bash instead of PowerShell
+        shell: bash
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
     - name: Set gh release download pattern match (auto32)
       if: matrix.arch == 'auto32'
-      run: echo OPENBLAS_MATCH=*x86.zip >> %GITHUB_ENV%
+      run: echo "OPENBLAS_MATCH='*x86.zip'" >> $GITHUB_ENV
     - name: Set gh release download pattern match (auto64)
       if: matrix.arch == 'auto64'
-      run: echo OPENBLAS_MATCH=*x64.zip >> %GITHUB_ENV%
+      run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -266,14 +266,17 @@ jobs:
         CIBW_ARCHS: ${{ matrix.arch }}
         # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH.
         # see build_nix_32 for why using | and multiple command lines fails.
+        # run commands in bash to avoid Windows lack of globbing and idiocy.
+        # double-quote command since OPENBLAS_MATCH is single-quoted.
         # echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
         # gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
         # mkdir ${{ env.OPENBLAS_PATH }} &&
         # unzip *.zip -d ${{ env.OPENBLAS_PATH }}
         CIBW_BEFORE_ALL: >
-          echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token &&
-          gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }} &&
-          mkdir ${{ github.workspace }}\OpenBLAS && ls
+          bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
+          --with-token && gh release download -R xianyi/OpenBLAS -p
+          ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_PATH }} &&
+          unzip *.zip -d ${{ env.OPENBLAS_PATH }}"
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
