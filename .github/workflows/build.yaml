@@ -256,10 +256,12 @@ jobs:
     - name: Set gh release download pattern match (auto64)
       if: matrix.arch == 'auto64'
       run: echo "OPENBLAS_MATCH='*x64.zip'" >> $GITHUB_ENV
-    # wslpath tskr so we can use bash in CIBW_BEFORE_ALL command. note that WSL
-    # is only enabled on Windows Server 2019, not 2016 GitHub runners.
+    # convert OPENBLAS_PATH to a Windows Bash path. the only changes are
+    # replacing \ with / and [drive]: with /lowercase(drive).
     - name: Convert env.OPENBLAS_PATH to mounted Linux path
-      run: pwd
+      run: >-
+        echo OPENBLAS_NIX_PATH=$(sed -e 's/\\/\//g' -e
+        's/^[A-Z]:/\/\L&/' -e 's/://'<<< $OPENBLAS_PATH) >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -274,8 +276,8 @@ jobs:
         CIBW_BEFORE_ALL: >
           bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
           --with-token && gh release download -R xianyi/OpenBLAS -p
-          ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_PATH }} &&
-          unzip *.zip -d ${{ env.OPENBLAS_PATH }}"
+          ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_NIX_PATH }} &&
+          unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
