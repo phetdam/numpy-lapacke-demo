@@ -68,7 +68,7 @@ From PyPI
 ~~~~~~~~~
 
 TBD. Local x86-64 builds on WSL Ubuntu 20.04 LTS linking against OpenBLAS
-0.3.15 or against ``libblas`` 3.9.0 and ``liblapacke`` 3.9.0 installed using
+0.3.17 or against ``libblas`` 3.9.0 and ``liblapacke`` 3.9.0 installed using
 ``apt`` have succeeded, as have builds on GitHub Actions runners for
 `manylinux1`__, manylinux2010, and MacOS linked against the latest OpenBLAS
 (0.3.17), built using `cibuildwheel`__. However, there have been issues with
