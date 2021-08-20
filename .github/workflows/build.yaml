@@ -250,7 +250,7 @@ jobs:
         # use Bash instead of PowerShell
         shell: bash
     # disable for now
-    #if: false
+    if: false
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
