@@ -140,8 +140,8 @@ def _get_ext_modules(env):
     # corresponding MSVC complex types to define LAPACK complex types
     if platform.system() == "Windows":
         cblap_macros += [
-            ("lapack_complex_float", "_FComplex"),
-            ("lapack_complex_double", "_DComplex")
+            ("lapack_complex_float", "_Fcomplex"),
+            ("lapack_complex_double", "_Dcomplex")
         ]
     # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
     cblap_build_kwargs = dict(
