@@ -113,11 +113,7 @@ def _get_ext_modules(env):
     # compilation arguments that need to be passed (extra_compile_args)
     if USE_OPENBLAS:
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
-        # on Windows, OpenBLAS DLL is put in OPENBLAS_PATH/bin
-        cblap_lib_dirs = [
-            f"{OPENBLAS_PATH}/bin" if _PLAT_NAME == "Windows" else
-            f"{OPENBLAS_PATH}/lib"
-        ]
+        cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
         cblap_lib_names = ["openblas"]
         cblap_macros = [("OPENBLAS_INCLUDE", None)]
         cblap_compile_args = []
@@ -155,6 +151,15 @@ def _get_ext_modules(env):
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
+    # on Windows, runtime_library_dirs corresponds to -Wl,-rpath for gcc and
+    # MSVC has no corresponding option, so unset it. to search for DLL on
+    # Windows we need to follow the standard search order, so we update PATH.
+    if _PLAT_NAME == "Windows":
+        cblap_build_kwargs["runtime_library_dirs"] = []
+        PATH_EXTRA = f";{OPENBLAS_PATH}/bin"
+        env["PATH"] = env["PATH"] + PATH_EXTRA
+    else:
+        PATH_EXTRA = None
     # return C extension modules
     return [
         # npypacke.regression._linreg, providing LinearRegression class
