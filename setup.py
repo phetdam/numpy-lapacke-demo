@@ -107,7 +107,7 @@ def _get_ext_modules(env):
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
         )
     # CBLAS + LAPACKE implementation include dirs (include_dirs), library dirs
-    # (library_dirs), runtime libary dirs (runtime_library_dirs), names of
+    # (library_dirs), runtime library dirs (runtime_library_dirs), names of
     # libraries to link during extension building (libraries), preprocessor
     # macros to also define during compilation (define_macros), extra
     # compilation arguments that need to be passed (extra_compile_args)
@@ -147,7 +147,7 @@ def _get_ext_modules(env):
     # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
     cblap_build_kwargs = dict(
         include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
-        library_dirs=cblap_lib_dirs, runtime_library_dirs=cblap_lib_dirs,
+        runtime_library_dirs=cblap_lib_dirs,
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
