@@ -114,7 +114,10 @@ def _get_ext_modules(env):
     if USE_OPENBLAS:
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
         cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
-        cblap_lib_names = ["openblas"]
+        # on Windows, no lib is prepended to the .lib/.dll name
+        cblap_lib_names = [
+            "libopenblas" if _PLAT_NAME == "Windows" else "openblas"
+        ]
         cblap_macros = [("OPENBLAS_INCLUDE", None)]
         cblap_compile_args = []
     elif USE_NETLIB:
@@ -147,7 +150,7 @@ def _get_ext_modules(env):
     # kwarg dict required by all C extensions calling CBLAS/LAPACKE routines
     cblap_build_kwargs = dict(
         include_dirs=cblap_include_dirs + _EXT_INCLUDE_DIRS,
-        runtime_library_dirs=cblap_lib_dirs,
+        library_dirs=cblap_lib_dirs, runtime_library_dirs=cblap_lib_dirs,
         libraries=cblap_lib_names, define_macros=cblap_macros,
         extra_compile_args=cblap_compile_args + _EXT_COMPILE_ARGS
     )
@@ -155,7 +158,7 @@ def _get_ext_modules(env):
     # MSVC has no corresponding option, so unset it. to search for DLL on
     # Windows we need to follow the standard search order, so we update PATH.
     if _PLAT_NAME == "Windows":
-        cblap_build_kwargs["runtime_library_dirs"] = []
+        del cblap_build_kwargs["runtime_library_dirs"]
         PATH_EXTRA = f";{OPENBLAS_PATH}/bin"
         env["PATH"] = env["PATH"] + PATH_EXTRA
     else:
