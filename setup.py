@@ -14,8 +14,7 @@ from npypacke import __package__, __version__
 # package name and summary/short description
 _PACKAGE_NAME = "numpy-lapacke-demo"
 _PACKAGE_SUMMARY = """A small Python package demonstrating how to use LAPACKE \
-and CBLAS with NumPy arrays in C extension modules.\
-"""
+and CBLAS with NumPy arrays in C extension modules."""
 # general include dirs and required by all C extensions
 _EXT_INCLUDE_DIRS = [f"{__package__}/include", np.get_include()]
 # platform name + extra compile args for all C extensions, platform-dependent
@@ -31,6 +30,9 @@ def _get_ext_modules(env):
 
     Reads environment variables from mapping env, typically os.environ.
     UserWarnings raised and defaults are used if required variables are unset.
+    Returned configuration may cause the setup function to fail on Windows if
+    not linking against OpenBLAS. Also, PATH has path_extra appended on Windows
+    and should be cleaned up after setup completes.
 
     Parameters
     ----------
@@ -39,8 +41,13 @@ def _get_ext_modules(env):
 
     Returns
     -------
-    list
+    ext_modules : list
         List of Extension instances to be sent to ext_modules kwargs of setup.
+    path_extra : str or None
+        On Windows, the OpenBLAS DLL is added to the Windows linker search path
+        by modifying PATH. path_extra gives the exact string appended to PATH
+        if not None, and can be cleaned from path by replacing path_extra in
+        os.environ["PATH"] with the empty string.
 
     Raises
     ------
@@ -114,7 +121,7 @@ def _get_ext_modules(env):
     if USE_OPENBLAS:
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
         cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
-        # on Windows, no lib is prepended to the .lib/.dll name
+        # on Windows, lib is not prepended to name of the LIB file
         cblap_lib_names = [
             "libopenblas" if _PLAT_NAME == "Windows" else "openblas"
         ]
@@ -159,11 +166,14 @@ def _get_ext_modules(env):
     # Windows we need to follow the standard search order, so we update PATH.
     if _PLAT_NAME == "Windows":
         del cblap_build_kwargs["runtime_library_dirs"]
-        PATH_EXTRA = f";{OPENBLAS_PATH}/bin"
-        env["PATH"] = env["PATH"] + PATH_EXTRA
+        # PATH_EXTRA should be removed from PATH after _get_ext_modules returns
+        path_extra = f";{OPENBLAS_PATH}/bin"
+        env["PATH"] = env["PATH"] + path_extra
+    # else we don't add path_extra to PATH variable, so set it to None
     else:
-        PATH_EXTRA = None
-    # return C extension modules
+        path_extra = None
+    # return C extension modules and path_extra. if path_extra is None, no
+    # changes were made to PATH, else replace path_extra in PATH with "" later
     return [
         # npypacke.regression._linreg, providing LinearRegression class
         Extension(
@@ -191,7 +201,7 @@ def _get_ext_modules(env):
             include_dirs=_EXT_INCLUDE_DIRS,
             extra_compile_args=_EXT_COMPILE_ARGS
         )
-    ]
+    ], path_extra
 
 
 def _setup():
@@ -199,6 +209,8 @@ def _setup():
     # get long description from README.rst
     with open("README.rst") as rf:
         long_desc = rf.read().strip()
+    # get Extension instances and path_extra
+    ext_modules, path_extra = _get_ext_modules(os.environ)
     # run setuptools setup
     setup(
         name=_PACKAGE_NAME,
@@ -225,8 +237,11 @@ def _setup():
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
         extras_require={"tests": ["pytest>=6.0.1", "scikit-learn>=0.23.2"]},
         ext_package=__package__,
-        ext_modules=_get_ext_modules(os.environ)
+        ext_modules=ext_modules
     )
+    # if path_extra not None, it was appended to PATH, so remove it
+    if path_extra:
+        os.environ["PATH"] = os.environ["PATH"].replace(path_extra, "")
 
 
 if __name__ == "__main__":
