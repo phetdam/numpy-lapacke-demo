@@ -18,8 +18,9 @@ and CBLAS with NumPy arrays in C extension modules.\
 """
 # general include dirs and required by all C extensions
 _EXT_INCLUDE_DIRS = [f"{__package__}/include", np.get_include()]
-# extra compile args for all C extensions, platform-dependent
-if platform.system() == "Windows":
+# platform name + extra compile args for all C extensions, platform-dependent
+_PLAT_NAME = platform.system()
+if _PLAT_NAME == "Windows":
     _EXT_COMPILE_ARGS = ["/std:c11"]
 else:
     _EXT_COMPILE_ARGS = ["-std=gnu11"]
@@ -112,7 +113,11 @@ def _get_ext_modules(env):
     # compilation arguments that need to be passed (extra_compile_args)
     if USE_OPENBLAS:
         cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
-        cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
+        # on Windows, OpenBLAS DLL is put in OPENBLAS_PATH/bin
+        cblap_lib_dirs = [
+            f"{OPENBLAS_PATH}/bin" if _PLAT_NAME == "Windows" else
+            f"{OPENBLAS_PATH}/lib"
+        ]
         cblap_lib_names = ["openblas"]
         cblap_macros = [("OPENBLAS_INCLUDE", None)]
         cblap_compile_args = []
@@ -138,7 +143,7 @@ def _get_ext_modules(env):
         cblap_compile_args = ["-m64"]
     # on Windows, MSVC doesn't support C99 _Complex type so we have to use the
     # corresponding MSVC complex types to define LAPACK complex types
-    if platform.system() == "Windows":
+    if _PLAT_NAME == "Windows":
         cblap_macros += [
             ("lapack_complex_float", "_Fcomplex"),
             ("lapack_complex_double", "_Dcomplex")
