@@ -275,7 +275,8 @@ jobs:
         gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
         mkdir ${{ env.OPENBLAS_NIX_PATH }}
         unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
-        echo DELOCATED=${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip >> $GITHUB_ENV
+        echo DELOCATED=$(echo ${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip) >> \
+          $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -291,8 +292,7 @@ jobs:
         #   false && bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
         #   --with-token && gh release download -R xianyi/OpenBLAS -p
         #   ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_NIX_PATH }} &&
-        #   unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}" &&
-        #   echo DELOCATED=${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip >> $GITHUB_ENV
+        #   unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
