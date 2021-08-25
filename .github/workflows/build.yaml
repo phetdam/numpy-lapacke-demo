@@ -275,7 +275,7 @@ jobs:
         gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
         mkdir ${{ env.OPENBLAS_NIX_PATH }}
         unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
-        echo DELOCATED=$(echo ${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip) >> \
+        echo DELOCATED=$(echo ${{ env.OPENBLAS_NIX_PATH }}/bin/*.dll) >> \
           $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel

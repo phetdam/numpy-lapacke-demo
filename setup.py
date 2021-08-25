@@ -3,6 +3,7 @@
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
 
+import glob
 import os
 import platform
 import shutil
@@ -251,7 +252,8 @@ def _setup():
     if deloc_files is not None:
         for deloc_file in deloc_files:
             # note: file metadata may NOT be preserved in all cases!
-            shutil.copy2(deloc_file, f"{__package__}")
+            for _file in glob.glob(deloc_file):
+                shutil.copy2(_file, f"{__package__}")
     # if deloc_files is not None, copy all into top-level package dir
     # run setuptools setup
     setup(
