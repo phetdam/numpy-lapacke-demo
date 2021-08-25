@@ -173,8 +173,11 @@ def _get_ext_modules(env):
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
         cblap_macros = [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
-    # if DELOCATED not None, cblap_lib_dirs set to base package path
-    if DELOCATED is not None:
+    # if DELOCATED not None and not on Windows, cblap_lib_dirs set to base
+    # package path. this is because Windows often has .lib import libraries
+    # which we still need to refer to in order to link against DLLs; we handle
+    # the DLL search path later after initializing cblap_build_kwargs
+    if DELOCATED is not None and _PLAT_NAME != "Windows":
         cblap_lib_dirs = [f"{__package__}"]
     # on Windows, MSVC doesn't support C99 _Complex type so we have to use the
     # corresponding MSVC complex types to define LAPACK complex types
