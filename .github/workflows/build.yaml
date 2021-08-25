@@ -282,7 +282,6 @@ jobs:
         output-dir: dist
       env:
         CIBW_ARCHS: ${{ matrix.arch }}
-        CIBW_TEST_COMMAND: python -m pytest -rsxXP -v --pyargs npypacke
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
