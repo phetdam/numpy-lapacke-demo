@@ -282,15 +282,7 @@ jobs:
         output-dir: dist
       env:
         CIBW_ARCHS: ${{ matrix.arch }}
-        # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH.
-        # see build_nix_32 for why using | and multiple command lines fails.
-        # run commands in Bash to avoid Windows lack of globbing and treating
-        # of single quotes as normal characters.
-        # CIBW_BEFORE_ALL: >
-        #   false && bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
-        #   --with-token && gh release download -R xianyi/OpenBLAS -p
-        #   ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_NIX_PATH }} &&
-        #   unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
+        CIBW_TEST_COMMAND: python -m pytest -rsxXP -v --pyargs npypacke
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
