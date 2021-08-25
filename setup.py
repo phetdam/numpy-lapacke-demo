@@ -3,11 +3,12 @@
 .. codeauthor:: Derek Huang <djh458@stern.nyu.edu>
 """
 
-import numpy as np
 import os
 import platform
-from setuptools import Extension, find_packages, setup
 import warnings
+
+import numpy as np
+from setuptools import Extension, find_packages, setup
 
 from npypacke import __package__, __version__
 
@@ -86,6 +87,29 @@ def _get_ext_modules(env):
         USE_MKL = True
     else:
         USE_MKL = False
+    # support copying shared libs into package. most relevant for Windows.
+    # indicate wheel repair tool to use instead of DELOCATED if possible.
+    if "DELOCATED" in env:
+        warnings.warn(
+            "DELOCATED set. specified shared libs will be copied into "
+            f"{__package__}. if you are building only for your machine, do "
+            "NOT set DELOCATED and link to your machine's shared libs."
+        )
+        if _PLAT_NAME != "Windows":
+            if _PLAT_NAME == "Linux":
+                wheel_repair_tool = "auditwheel"
+            elif _PLAT_NAME == "Darwin":
+                wheel_repair_tool = "delocate"
+            else:
+                wheel_repair_tool = None
+            if wheel_repair_tool is not None:
+                warnings.warn(
+                    "non-Windows platform detected. if you wish to build a "
+                    f"redistributable wheel, please use {wheel_repair_tool}"
+                )
+        DELOCATED = env["DELOCATED"].split(":")
+    else:
+        DELOCATED = None
     # if using MKL, check for unset MKL_INTERFACE_LAYER, MKL_THREADING_LAYER,
     # which control the mkl_rt interface. if unset, use default values
     if USE_MKL:
@@ -147,6 +171,9 @@ def _get_ext_modules(env):
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
         cblap_macros = [("MKL_INCLUDE", None)]
         cblap_compile_args = ["-m64"]
+    # if DELOCATED not None, cblap_lib_dirs set to base package path
+    if DELOCATED is not None:
+        cblap_lib_dirs = [f"{__package__}"]
     # on Windows, MSVC doesn't support C99 _Complex type so we have to use the
     # corresponding MSVC complex types to define LAPACK complex types
     if _PLAT_NAME == "Windows":
@@ -167,13 +194,26 @@ def _get_ext_modules(env):
     if _PLAT_NAME == "Windows":
         del cblap_build_kwargs["runtime_library_dirs"]
         # PATH_EXTRA should be removed from PATH after _get_ext_modules returns
-        path_extra = f";{OPENBLAS_PATH}/bin"
+        # else PATH will grow. if DELOCATED not None, very simple case.
+        if DELOCATED is not None:
+            path_extra = f";{__package__}"
+        elif USE_OPENBLAS:
+            path_extra = f";{OPENBLAS_PATH}/bin"
+        # note: USE_NETLIB and USE_MKL cases have not been tested!
+        else:
+            path_extra = ";".join([""] + cblap_lib_dirs)
         env["PATH"] = env["PATH"] + path_extra
     # else we don't add path_extra to PATH variable, so set it to None
     else:
         path_extra = None
-    # return C extension modules and path_extra. if path_extra is None, no
-    # changes were made to PATH, else replace path_extra in PATH with "" later
+    # if DELOCATED not None, split by : into list of string file names
+    if DELOCATED is None:
+        deloc_files = None
+    else:
+        deloc_files = DELOCATED.split(":")
+    # return C extension modules, path_extra, files to pass to data_files. if
+    # path_extra is None, no changes were made to PATH, else replace path_extra
+    # in PATH with "" after _get_ext_modules returns.
     return [
         # npypacke.regression._linreg, providing LinearRegression class
         Extension(
@@ -201,7 +241,7 @@ def _get_ext_modules(env):
             include_dirs=_EXT_INCLUDE_DIRS,
             extra_compile_args=_EXT_COMPILE_ARGS
         )
-    ], path_extra
+    ], path_extra, deloc_files
 
 
 def _setup():
@@ -209,8 +249,12 @@ def _setup():
     # get long description from README.rst
     with open("README.rst") as rf:
         long_desc = rf.read().strip()
-    # get Extension instances and path_extra
-    ext_modules, path_extra = _get_ext_modules(os.environ)
+    # get Extension instances, path_extra, and shared objects to copy
+    ext_modules, path_extra, deloc_files = _get_ext_modules(os.environ)
+    if deloc_files is None:
+        data_files_map = None
+    else:
+        data_files_map = [(f"{__package__}", deloc_files)]
     # run setuptools setup
     setup(
         name=_PACKAGE_NAME,
@@ -238,7 +282,8 @@ def _setup():
         install_requires=["numpy>=1.19.1", "scipy>=1.5.2"],
         extras_require={"tests": ["pytest>=6.0.1", "scikit-learn>=0.23.2"]},
         ext_package=__package__,
-        ext_modules=ext_modules
+        ext_modules=ext_modules,
+        data_files=data_files_map
     )
     # if path_extra not None, it was appended to PATH, so remove it
     if path_extra:

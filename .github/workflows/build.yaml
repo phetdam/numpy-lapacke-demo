@@ -250,7 +250,7 @@ jobs:
         # use Bash instead of PowerShell
         shell: bash
     # disable for now
-    if: false
+    #if: false
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
@@ -281,7 +281,8 @@ jobs:
           bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
           --with-token && gh release download -R xianyi/OpenBLAS -p
           ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_NIX_PATH }} &&
-          unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
+          unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}" &&
+          echo DELOCATED=${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip >> $GITHUB_ENV
     - name: Upload wheel artifacts
       id: upload-wheels
       uses: actions/upload-artifact@v2
@@ -304,7 +305,7 @@ jobs:
   # notifies final job success if all jobs succeeded
   notify_success:
     runs-on: ubuntu-latest
-    needs: [build_sdist, build_nix_32, build_nix_64] #, build_windows]
+    needs: [build_sdist, build_nix_32, build_nix_64, build_windows]
     steps:
     - name: Notify Slack on overall workflow success
       uses: voxmedia/github-action-slack-notify-build@v2
