@@ -23,7 +23,7 @@ _EXT_INCLUDE_DIRS = [f"{__package__}/include", np.get_include()]
 # platform name + extra compile args for all C extensions, platform-dependent
 _PLAT_NAME = platform.system()
 if _PLAT_NAME == "Windows":
-    _EXT_COMPILE_ARGS = ["/std:c11", "/d2FH4"]
+    _EXT_COMPILE_ARGS = ["/std:c11", "/d2FH4-"]
 else:
     _EXT_COMPILE_ARGS = ["-std=gnu11"]
 
