@@ -25,9 +25,7 @@ env:
   CIBW_BEFORE_BUILD: pip install -r install_requires.txt
   # extras_requires to install (also installs deps) + testing command
   CIBW_TEST_EXTRAS: tests
-  CIBW_TEST_COMMAND: >
-    pytest -rsxXP -v --pyargs npypacke.regression.tests &&
-    pytest -rsxXP -v --pyargs npypacke.solvers.tests
+  CIBW_TEST_COMMAND: pytest -rsxXP -v --pyargs npypacke
   # increase pip verbosity during build so we can see compiler output
   CIBW_BUILD_VERBOSITY: 1
   # bot token required by github-action-slack-notify-build
