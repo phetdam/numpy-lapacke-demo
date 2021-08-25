@@ -5,6 +5,7 @@
 
 import os
 import platform
+import shutil
 import warnings
 
 import numpy as np
@@ -206,11 +207,6 @@ def _get_ext_modules(env):
     # else we don't add path_extra to PATH variable, so set it to None
     else:
         path_extra = None
-    # if DELOCATED not None, split by : into list of string file names
-    if DELOCATED is None:
-        deloc_files = None
-    else:
-        deloc_files = DELOCATED.split(":")
     # return C extension modules, path_extra, files to pass to data_files. if
     # path_extra is None, no changes were made to PATH, else replace path_extra
     # in PATH with "" after _get_ext_modules returns.
@@ -241,7 +237,7 @@ def _get_ext_modules(env):
             include_dirs=_EXT_INCLUDE_DIRS,
             extra_compile_args=_EXT_COMPILE_ARGS
         )
-    ], path_extra, deloc_files
+    ], path_extra, DELOCATED
 
 
 def _setup():
@@ -251,10 +247,12 @@ def _setup():
         long_desc = rf.read().strip()
     # get Extension instances, path_extra, and shared objects to copy
     ext_modules, path_extra, deloc_files = _get_ext_modules(os.environ)
-    if deloc_files is None:
-        data_files_map = None
-    else:
-        data_files_map = [(f"{__package__}", deloc_files)]
+    # if deloc_files given, copy into top-level package
+    if deloc_files is not None:
+        for deloc_file in deloc_files:
+            # note: file metadata may NOT be preserved in all cases!
+            shutil.copy2(deloc_file, f"{__package__}")
+    # if deloc_files is not None, copy all into top-level package dir
     # run setuptools setup
     setup(
         name=_PACKAGE_NAME,
@@ -283,7 +281,7 @@ def _setup():
         extras_require={"tests": ["pytest>=6.0.1", "scikit-learn>=0.23.2"]},
         ext_package=__package__,
         ext_modules=ext_modules,
-        data_files=data_files_map
+        package_data={f"{__package__}": ["*.so", "*.dll", "*.dylib"]}
     )
     # if path_extra not None, it was appended to PATH, so remove it
     if path_extra:

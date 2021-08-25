@@ -250,7 +250,7 @@ jobs:
         # use Bash instead of PowerShell
         shell: bash
     # disable for now
-    #if: false
+    if: false
     steps:
     - uses: actions/checkout@v2
     # depending on matrix.arch, set a different release download match pattern
@@ -266,6 +266,16 @@ jobs:
       run: >-
         echo OPENBLAS_NIX_PATH=$(sed -e 's/\\/\//g' -e
         's/^[A-Z]:/\/\L&/' -e 's/://' <<< $OPENBLAS_PATH) >> $GITHUB_ENV
+    # download latest OpenBLAS zipped binaries and unpack to OPENBLAS_PATH.
+    # can't do this in CIBW_BEFORE_ALL since we need DELOCATED before we build
+    # the wheels in the cibuildwheel step.
+    - name: Download and unpack OpenBLAS Windows binaries + set DELOCATED
+      run: |
+        bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
+        gh release download -R xianyi/OpenBLAS -p ${{ env.OPENBLAS_MATCH }}
+        mkdir ${{ env.OPENBLAS_NIX_PATH }}
+        unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}"
+        echo DELOCATED=${{ env.OPENBLAS_NIX_PATH }}/bin/*.zip >> $GITHUB_ENV
     - name: Build and test wheels
       id: cibuildwheel
       uses: pypa/cibuildwheel@v2.0.1
@@ -278,7 +288,7 @@ jobs:
         # run commands in Bash to avoid Windows lack of globbing and treating
         # of single quotes as normal characters.
         CIBW_BEFORE_ALL: >
-          bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
+          false && bash -c "echo ${{ secrets.GITHUB_TOKEN }} | gh auth login
           --with-token && gh release download -R xianyi/OpenBLAS -p
           ${{ env.OPENBLAS_MATCH }} && mkdir ${{ env.OPENBLAS_NIX_PATH }} &&
           unzip *.zip -d ${{ env.OPENBLAS_NIX_PATH }}" &&
