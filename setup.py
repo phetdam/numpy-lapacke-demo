@@ -97,18 +97,17 @@ def _get_ext_modules(env):
             f"{__package__}. if you are building only for your machine, do "
             "NOT set DELOCATED and link to your machine's shared libs."
         )
-        if _PLAT_NAME != "Windows":
-            if _PLAT_NAME == "Linux":
-                wheel_repair_tool = "auditwheel"
-            elif _PLAT_NAME == "Darwin":
-                wheel_repair_tool = "delocate"
-            else:
-                wheel_repair_tool = None
-            if wheel_repair_tool is not None:
-                warnings.warn(
-                    "non-Windows platform detected. if you wish to build a "
-                    f"redistributable wheel, please use {wheel_repair_tool}"
-                )
+        if _PLAT_NAME == "Linux":
+            wheel_repair_tool = "auditwheel"
+        elif _PLAT_NAME == "Darwin":
+            wheel_repair_tool = "delocate"
+        else:
+            wheel_repair_tool = None
+        if _PLAT_NAME != "Windows" and wheel_repair_tool is not None:
+            warnings.warn(
+                "non-Windows platform detected. if you wish to build a "
+                f"redistributable wheel, please use {wheel_repair_tool}"
+            )
         DELOCATED = env["DELOCATED"].split(":")
     else:
         DELOCATED = None

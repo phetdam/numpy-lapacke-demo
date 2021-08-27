@@ -16,7 +16,7 @@ __version__ = "0.1.0.dev0"
 # %PATH%, in order for the extension modules to work correctly. solution here
 # is from answer to question 65334494 on StackOverflow, itself based on NumPy's
 # solution. the conditional code only runs on Windows platforms.
-_blap_dll_dir = os.path.dirname(__file__)
+_blap_dll_dir = os.path.dirname(os.path.abspath(__file__))
 # do PATH adjustments for Windows only
 if platform.system() == "Windows":
     # os.add_dll_directory only available for Python 3.8+
