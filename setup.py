@@ -261,7 +261,7 @@ def _setup():
                     f"can't match glob pattern {deloc_glob} in DELOCATED"
                 )
             # else just copy
-            for deloc_file in glob.glob(deloc_files):
+            for deloc_file in deloc_files:
                 shutil.copy2(deloc_file, f"{__package__}")
     # if deloc_files is not None, copy all into top-level package dir
     # run setuptools setup
