@@ -256,6 +256,7 @@ def _setup():
             # note: file metadata may NOT be preserved in all cases!
             for _file in glob.glob(deloc_file):
                 shutil.copy2(_file, f"{__package__}")
+    print(os.listdir(f"{__package__}"))
     # if deloc_files is not None, copy all into top-level package dir
     # run setuptools setup
     setup(
