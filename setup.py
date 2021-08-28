@@ -108,7 +108,7 @@ def _get_ext_modules(env):
                 "non-Windows platform detected. if you wish to build a "
                 f"redistributable wheel, please use {wheel_repair_tool}"
             )
-        DELOCATED = env["DELOCATED"].split(":")
+        DELOCATED = env["DELOCATED"].split(os.pathsep)
     else:
         DELOCATED = None
     # if using MKL, check for unset MKL_INTERFACE_LAYER, MKL_THREADING_LAYER,
