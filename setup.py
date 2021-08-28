@@ -210,7 +210,6 @@ def _get_ext_modules(env):
     # else we don't add path_extra to PATH variable, so set it to None
     else:
         path_extra = None
-    print(f"DELOCATED={DELOCATED}")
     # return C extension modules, path_extra, files to pass to data_files. if
     # path_extra is None, no changes were made to PATH, else replace path_extra
     # in PATH with "" after _get_ext_modules returns.
@@ -250,15 +249,20 @@ def _setup():
     with open("README.rst") as rf:
         long_desc = rf.read().strip()
     # get Extension instances, path_extra, and shared objects to copy
-    ext_modules, path_extra, deloc_files = _get_ext_modules(os.environ)
-    # if deloc_files given, copy into top-level package
-    print(f"DELOCATED={deloc_files}")
-    if deloc_files is not None:
-        for deloc_file in deloc_files:
-            # note: file metadata may NOT be preserved in all cases!
-            for _file in glob.glob(deloc_file):
-                shutil.copy2(_file, f"{__package__}")
-    print(os.listdir(f"{__package__}"))
+    ext_modules, path_extra, deloc_globs = _get_ext_modules(os.environ)
+    # if deloc_globs given, copy into top-level package, matching globs. note
+    # that file metadata may NOT be preserved in all cases!
+    if deloc_globs is not None:
+        for deloc_glob in deloc_globs:
+            deloc_files = glob.glob(deloc_glob)
+            # raise exception if glob pattern match fails
+            if len(deloc_files) == 0:
+                raise FileNotFoundError(
+                    f"can't match glob pattern {deloc_glob} in DELOCATED"
+                )
+            # else just copy
+            for deloc_file in glob.glob(deloc_files):
+                shutil.copy2(deloc_file, f"{__package__}")
     # if deloc_files is not None, copy all into top-level package dir
     # run setuptools setup
     setup(
