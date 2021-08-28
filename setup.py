@@ -210,6 +210,7 @@ def _get_ext_modules(env):
     # else we don't add path_extra to PATH variable, so set it to None
     else:
         path_extra = None
+    print(f"DELOCATED={DELOCATED}")
     # return C extension modules, path_extra, files to pass to data_files. if
     # path_extra is None, no changes were made to PATH, else replace path_extra
     # in PATH with "" after _get_ext_modules returns.
@@ -251,6 +252,7 @@ def _setup():
     # get Extension instances, path_extra, and shared objects to copy
     ext_modules, path_extra, deloc_files = _get_ext_modules(os.environ)
     # if deloc_files given, copy into top-level package
+    print(f"DELOCATED={deloc_files}")
     if deloc_files is not None:
         for deloc_file in deloc_files:
             # note: file metadata may NOT be preserved in all cases!
