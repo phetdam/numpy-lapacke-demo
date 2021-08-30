@@ -34,6 +34,8 @@ env:
   SLACK_BOT_TOKEN: ${{ secrets.SLACK_ACTIONS_COURIER_TOKEN }}
   # delimiter separating job statuses from step statuses
   STEP_DELIM: ==============================
+  # deployment status sent by notify_build_ok. running if deploying else skipped
+  DEPLOY_STATUS: skipped
 
 jobs:
   # get latest OpenBLAS source gzip tarball and upload. upload is very slow if
@@ -301,14 +303,23 @@ jobs:
           [step] upload-wheels: ${{ steps.upload-wheels.outcome }}
         color: danger
 
-  # notifies final job success if all jobs succeeded
-  notify_success:
+  # notifies success if all build jobs succeeded
+  notify_build_ok:
     runs-on: ubuntu-latest
     needs: [build_sdist, build_nix_32, build_nix_64, build_windows]
     steps:
+    - name: Set env.DEPLOY_STATUS to running on version tag push
+      if: ${{ contains(github.ref, 'refs/tags/v') }}
+      run: echo "DEPLOY_STATUS=running" >> $GITHUB_ENV
     - name: Notify Slack on overall workflow success
       uses: voxmedia/github-action-slack-notify-build@v2
       with:
         channel: gh-actions-alerts
-        status: "[workflow] ${{ github.workflow }}: ${{ job.status }}"
+        status: |
+          [job] get_openblas: success
+          [job] build_sdist: success
+          [job] build_nix_32: succcess
+          [job] build_nix_64: success
+          [job] build_windows: success
+          [job] deploy: ${{ env.DEPLOY_STATUS }}
         color: good
