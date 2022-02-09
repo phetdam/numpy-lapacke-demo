@@ -12,7 +12,9 @@ import warnings
 import numpy as np
 from setuptools import Extension, find_packages, setup
 
+# pylint: disable=redefined-builtin
 from npypacke import __package__, __version__
+# pylint: enable=redefined-builtin
 
 # package name and summary/short description
 _PACKAGE_NAME = "numpy-lapacke-demo"
