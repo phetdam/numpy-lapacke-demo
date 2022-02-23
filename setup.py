@@ -53,6 +53,11 @@ def _get_ext_modules(env):
         by modifying PATH. path_extra gives the exact string appended to PATH
         if not None, and can be cleaned from path by replacing path_extra in
         os.environ["PATH"] with the empty string.
+    delocated : str
+        Directory where external shared libraries are located that are to be
+        copied (delocated) into wheel for distribution, as we cannot link
+        assume the existence of shared libs when distributing. None if the
+        DELOCATED environment vairable is not set.
 
     Raises
     ------
@@ -62,35 +67,35 @@ def _get_ext_modules(env):
     # get OpenBLAS, reference (Netlib) CBLAS/LAPACKE, MKL install paths. if
     # not specified in the environment, warn and use defaults.
     if "OPENBLAS_PATH" in env:
-        OPENBLAS_PATH = env["OPENBLAS_PATH"]
+        openblas_path = env["OPENBLAS_PATH"]
     else:
         warnings.warn(
             "OPENBLAS_PATH not set. defaulting to OPENBLAS_PATH=/opt/OpenBLAS"
         )
-        OPENBLAS_PATH = "/opt/OpenBLAS"
+        openblas_path = "/opt/OpenBLAS"
     if "NETLIB_PATH" in env:
-        NETLIB_PATH = env["NETLIB_PATH"]
+        netlib_path = env["NETLIB_PATH"]
     else:
         warnings.warn("NETLIB_PATH not set. defaulting to NETLIB_PATH=/usr")
-        NETLIB_PATH = "/usr"
+        netlib_path = "/usr"
     if "MKL_PATH" in env:
-        MKL_PATH = env["MKL_PATH"]
+        mkl_path = env["MKL_PATH"]
     else:
         warnings.warn("MKL_PATH not set. defaulting to MKL_PATH=/usr")
-        MKL_PATH = "/usr"
+        mkl_path = "/usr"
     # get flags to indicate which CBLAS + LAPACKE implementations to use
     if "USE_OPENBLAS" in env and env["USE_OPENBLAS"] == "1":
-        USE_OPENBLAS = True
+        use_openblas = True
     else:
-        USE_OPENBLAS = False
+        use_openblas = False
     if "USE_NETLIB" in env and env["USE_NETLIB"] == "1":
-        USE_NETLIB = True
+        use_netlib = True
     else:
-        USE_NETLIB = False
+        use_netlib = False
     if "USE_MKL" in env and env["USE_MKL"] == "1":
-        USE_MKL = True
+        use_mkl = True
     else:
-        USE_MKL = False
+        use_mkl = False
     # support copying shared libs into package. most relevant for Windows.
     # indicate wheel repair tool to use instead of DELOCATED if possible.
     if "DELOCATED" in env:
@@ -110,12 +115,12 @@ def _get_ext_modules(env):
                 "non-Windows platform detected. if you wish to build a "
                 f"redistributable wheel, please use {wheel_repair_tool}"
             )
-        DELOCATED = env["DELOCATED"].split(os.pathsep)
+        delocated = env["DELOCATED"].split(os.pathsep)
     else:
-        DELOCATED = None
+        delocated = None
     # if using MKL, check for unset MKL_INTERFACE_LAYER, MKL_THREADING_LAYER,
     # which control the mkl_rt interface. if unset, use default values
-    if USE_MKL:
+    if use_mkl:
         if "MKL_INTERFACE_LAYER" not in env:
             warnings.warn(
                 "MKL_INTERFACE_LAYER not set. setting "
@@ -129,14 +134,14 @@ def _get_ext_modules(env):
             )
             env["MKL_THREADING_LAYER"] = "SEQUENTIAL"
     # if all are False, warn and default to OpenBLAS
-    if not USE_OPENBLAS and not USE_NETLIB and not USE_MKL:
+    if not use_openblas and not use_netlib and not use_mkl:
         warnings.warn(
             "neither of USE_OPENBLAS, USE_NETLIB, USE_MKL set to 1. "
             "defaulting to USE_OPENBLAS=1"
         )
-        USE_OPENBLAS = True
+        use_openblas = True
     # if more than one is True, error (numpy function convenient here)
-    if np.sum((USE_OPENBLAS, USE_NETLIB, USE_MKL)) > 1:
+    if np.sum((use_openblas, use_netlib, use_mkl)) > 1:
         raise RuntimeError(
             "only one of USE_OPENBLAS, USE_NETLIB, USE_MKL may be set"
         )
@@ -145,31 +150,31 @@ def _get_ext_modules(env):
     # libraries to link during extension building (libraries), preprocessor
     # macros to also define during compilation (define_macros), extra
     # compilation arguments that need to be passed (extra_compile_args)
-    if USE_OPENBLAS:
-        cblap_include_dirs = [f"{OPENBLAS_PATH}/include"]
-        cblap_lib_dirs = [f"{OPENBLAS_PATH}/lib"]
+    if use_openblas:
+        cblap_include_dirs = [f"{openblas_path}/include"]
+        cblap_lib_dirs = [f"{openblas_path}/lib"]
         # on Windows, lib is not prepended to name of the LIB file
         cblap_lib_names = [
             "libopenblas" if _PLAT_NAME == "Windows" else "openblas"
         ]
         cblap_macros = [("OPENBLAS_INCLUDE", None)]
         cblap_compile_args = []
-    elif USE_NETLIB:
+    elif use_netlib:
         cblap_include_dirs = [
-            f"{NETLIB_PATH}/include", f"{NETLIB_PATH}/include/x86_64-linux-gnu"
-            f"{NETLIB_PATH}/CBLAS/include", f"{NETLIB_PATH}/LAPACKE/include",
+            f"{netlib_path}/include", f"{netlib_path}/include/x86_64-linux-gnu"
+            f"{netlib_path}/CBLAS/include", f"{netlib_path}/LAPACKE/include",
         ]
         cblap_lib_dirs = [
-            NETLIB_PATH, f"{NETLIB_PATH}/lib",
-            f"{NETLIB_PATH}/lib/x86_64-linux-gnu"
+            netlib_path, f"{netlib_path}/lib",
+            f"{netlib_path}/lib/x86_64-linux-gnu"
         ]
         cblap_lib_names = ["blas", "lapacke"]
         cblap_macros = [("CBLAS_INCLUDE", None), ("LAPACKE_INCLUDE", None)]
         cblap_compile_args = []
-    elif USE_MKL:
-        cblap_include_dirs = [f"{MKL_PATH}/include", f"{MKL_PATH}/include/mkl"]
+    elif use_mkl:
+        cblap_include_dirs = [f"{mkl_path}/include", f"{mkl_path}/include/mkl"]
         cblap_lib_dirs = [
-            f"{MKL_PATH}/lib/x86_64-linux-gnu", f"{MKL_PATH}/lib/intel64"
+            f"{mkl_path}/lib/x86_64-linux-gnu", f"{mkl_path}/lib/intel64"
         ]
         cblap_lib_names = ["mkl_rt", "pthread", "m", "dl"]
         cblap_macros = [("MKL_INCLUDE", None)]
@@ -178,7 +183,7 @@ def _get_ext_modules(env):
     # package path. this is because Windows often has .lib import libraries
     # which we still need to refer to in order to link against DLLs; we handle
     # the DLL search path later after initializing cblap_build_kwargs
-    if DELOCATED is not None and _PLAT_NAME != "Windows":
+    if delocated is not None and _PLAT_NAME != "Windows":
         cblap_lib_dirs = [f"{__package__}"]
     # on Windows, MSVC doesn't support C99 _Complex type so we have to use the
     # corresponding MSVC complex types to define LAPACK complex types
@@ -201,10 +206,10 @@ def _get_ext_modules(env):
         del cblap_build_kwargs["runtime_library_dirs"]
         # PATH_EXTRA should be removed from PATH after _get_ext_modules returns
         # else PATH will grow. if DELOCATED not None, very simple case.
-        if DELOCATED is not None:
+        if delocated is not None:
             path_extra = f";{__package__}"
-        elif USE_OPENBLAS:
-            path_extra = f";{OPENBLAS_PATH}/bin"
+        elif use_openblas:
+            path_extra = f";{openblas_path}/bin"
         # note: USE_NETLIB and USE_MKL cases have not been tested!
         else:
             path_extra = ";".join([""] + cblap_lib_dirs)
@@ -215,7 +220,7 @@ def _get_ext_modules(env):
     # return C extension modules, path_extra, files to pass to data_files. if
     # path_extra is None, no changes were made to PATH, else replace path_extra
     # in PATH with "" after _get_ext_modules returns.
-    return [
+    ext_modules = [
         # npypacke.regression._linreg, providing LinearRegression class
         Extension(
             name="regression._linreg",
@@ -242,7 +247,8 @@ def _get_ext_modules(env):
             include_dirs=_EXT_INCLUDE_DIRS,
             extra_compile_args=_EXT_COMPILE_ARGS
         )
-    ], path_extra, DELOCATED
+    ]
+    return ext_modules, path_extra, delocated
 
 
 def _setup():
