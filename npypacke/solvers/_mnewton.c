@@ -503,17 +503,24 @@ compute_hessian(PyObject *hess, PyTupleObject *args)
 static PyObject *
 populate_OptimizeResult(
   PyArrayObject *x,
-  int success, int status, const char *message,
+  int success,
+  int status,
+  const char *message,
   PyObject *fun_x,
-  PyArrayObject *jac_x, PyArrayObject *hess_x, PyArrayObject *hess_inv,
-  Py_ssize_t n_fev, Py_ssize_t n_jev, Py_ssize_t n_hev, Py_ssize_t n_iter,
-  PyObject *maxcv
-)
+  PyArrayObject *jac_x,
+  PyArrayObject *hess_x,
+  PyArrayObject *hess_inv,
+  Py_ssize_t n_fev,
+  Py_ssize_t n_jev,
+  Py_ssize_t n_hev,
+  Py_ssize_t n_iter,
+  PyObject *maxcv)
 {
   // attempt to import scipy.optimize. NULL on error. if already imported, this
   // is just a new reference to the module in sys.modules.
   PyObject *opt_mod = PyImport_ImportModule("scipy.optimize");
-  if (opt_mod == NULL) {
+  if (opt_mod == NULL)
+  {
     return NULL;
   }
   // get the OptimizeResult class member from the module
@@ -719,9 +726,10 @@ lower_packed_copy(const double *mat, double *matp, npy_intp n)
  */
 static PyArrayObject *
 compute_mnewton_descent(
-  PyArrayObject *hess, PyArrayObject *jac,
-  double beta, double tau_factor
-)
+  PyArrayObject *hess,
+  PyArrayObject *jac,
+  double beta,
+  double tau_factor)
 {
   /**
    * lower triangular (packed) factor of the [modified] Hessian. may later hold
@@ -881,10 +889,15 @@ except_lower:
  */
 static double
 armijo_backtrack_search(
-  PyObject *fun, PyTupleObject *args,
-  PyArrayObject *x, PyObject *fun_x, PyArrayObject *jac_x,
-  PyArrayObject *d_x, double eta0, double alpha, double gamma
-)
+  PyObject *fun,
+  PyTupleObject *args,
+  PyArrayObject *x,
+  PyObject *fun_x,
+  PyArrayObject *jac_x,
+  PyArrayObject *d_x,
+  double eta0,
+  double alpha,
+  double gamma)
 {
   // NumPy array to hold the trial point computed each iteration
   PyArrayObject *x_new;
@@ -1332,8 +1345,10 @@ except_x:
 // _mnewton methods
 static PyMethodDef _mnewton_methods[] = {
   {
-    "mnewton", (PyCFunction) mnewton,
-    METH_VARARGS | METH_KEYWORDS, mnewton_doc
+    "mnewton",
+    (PyCFunction) mnewton,
+    METH_VARARGS | METH_KEYWORDS,
+    mnewton_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}

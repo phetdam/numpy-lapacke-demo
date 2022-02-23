@@ -213,9 +213,7 @@ compute_intercept(PyArrayObject *coef, PyArrayObject *x_mean, PyObject *y_mean)
  */
 static int
 qr_solver(
-  LinearRegression *self,
-  PyArrayObject *input_ar, PyArrayObject *output_ar
-)
+  LinearRegression *self, PyArrayObject *input_ar, PyArrayObject *output_ar)
 {
   // get number of samples, features, and targets
   npy_intp n_samples, n_features, n_targets;
@@ -405,9 +403,7 @@ except_input_cent_ar:
  */
 static int
 svd_solver(
-  LinearRegression *self,
-  PyArrayObject *input_ar, PyArrayObject *output_ar
-)
+  LinearRegression *self, PyArrayObject *input_ar, PyArrayObject *output_ar)
 {
   // get number of samples, features, and targets
   npy_intp n_samples, n_features, n_targets;
@@ -1119,9 +1115,11 @@ except_input_ar:
  */
 static double
 weighted_r2(
-  const double *y_true, const double *y_pred, const double *weights,
-  npy_intp n_samples, npy_intp ldim
-)
+  const double *y_true,
+  const double *y_pred,
+  const double *weights,
+  npy_intp n_samples,
+  npy_intp ldim)
 {
   // sample mean of y_true, weighted sample variance of y_true * weight_sum,
   // weighted sum of squared differences between y_true and y_pred, weight sum
@@ -1433,16 +1431,22 @@ except_X:
 // methods of the LinearRegression type
 static PyMethodDef LinearRegression_methods[] = {
   {
-    "fit", (PyCFunction) LinearRegression_fit,
-    METH_VARARGS, LinearRegression_fit_doc
+    "fit",
+    (PyCFunction) LinearRegression_fit,
+    METH_VARARGS,
+    LinearRegression_fit_doc
   },
   {
-    "predict", (PyCFunction) LinearRegression_predict,
-    METH_O, LinearRegression_predict_doc
+    "predict",
+    (PyCFunction) LinearRegression_predict,
+    METH_O,
+    LinearRegression_predict_doc
   },
   {
-    "score", (PyCFunction) LinearRegression_score,
-    METH_VARARGS | METH_KEYWORDS, LinearRegression_score_doc
+    "score",
+    (PyCFunction) LinearRegression_score,
+    METH_VARARGS | METH_KEYWORDS,
+    LinearRegression_score_doc
   },
   // sentinel marking end of array
   {NULL, NULL, 0, NULL}
