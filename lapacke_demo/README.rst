@@ -104,12 +104,10 @@ and no multithreading, the corresponding ``gcc`` invocation is
    -o lapacke_demo lapacke_demo.c -L/path/to/MKL/lib \
    -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 
-There are two paths passed with ``-L`` as the former occurs if Intel MKL is
-installed on Ubuntu using ``apt``. One can also use the
-`Intel MKL Link Line Advisor`__ to generate the linker line given different
-combinations of MKL version, OS, architecture, ``int`` size, threading layer,
-etc. The linker line in the above invocation was generated with help from the
-Intel Link Line Advisor.
+One can also use the `Intel MKL Link Line Advisor`__ to generate the linker
+line given different combinations of MKL version, OS, architecture, ``int``
+size, threading layer, etc. The linker line in the above invocation was
+generated with help from the Intel Link Line Advisor.
 
 .. __: https://software.intel.com/content/www/us/en/develop/tools/oneapi/
    components/onemkl/link-line-advisor.html
