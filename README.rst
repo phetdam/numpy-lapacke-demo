@@ -137,7 +137,7 @@ data using QR decomposition.
 Minimize the multivariate Rosenbrock function using Newton's method with
 diagonal Hessian modification.
 
-.. code:: python3
+.. code-block:: python3
 
    import numpy as np
    from scipy.optimize import rosen, rosen_der, rosen_hess
