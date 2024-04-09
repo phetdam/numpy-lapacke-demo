@@ -119,7 +119,7 @@ must be installed. NumPy and SciPy must of course be installed.
 Fit a linear model with intercept by least squares on the Boston house prices
 data using QR decomposition.
 
-.. code:: python
+.. code-block:: python
 
    from sklearn.datasets import load_boston
    from sklearn.model_selection import train_test_split
@@ -137,7 +137,7 @@ data using QR decomposition.
 Minimize the multivariate Rosenbrock function using Newton's method with
 diagonal Hessian modification.
 
-.. code:: python
+.. code-block:: python
 
    import numpy as np
    from scipy.optimize import rosen, rosen_der, rosen_hess
